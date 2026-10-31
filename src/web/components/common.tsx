@@ -1,6 +1,7 @@
 import type { UseQueryResult } from "@tanstack/react-query"
 import { cn } from "cn"
 import type { ReactNode } from "react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/web/components/ui/select"
 import { useCurrentClass } from "@/web/lib/class"
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
@@ -97,5 +98,41 @@ export function Delta({ n, className }: { n: number; className?: string }) {
     <span className={cn("tabular-nums", n > 0 && "text-success", n < 0 && "text-destructive", className)}>
       {n > 0 ? `+${n}` : n}
     </span>
+  )
+}
+
+// Radix Select 不允许空字符串作为选项值，"不限/默认"这类选项用这个占位值代替
+const NONE = "__none__"
+
+/**
+ * 下拉选择（统一样式，替代原生 select）。
+ * options 的 value 可以是空字符串，表示"全部/默认"。
+ */
+export function Picker({
+  value,
+  onChange,
+  options,
+  label,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+  label: string
+  className?: string
+}) {
+  return (
+    <Select value={value === "" ? NONE : value} onValueChange={(v) => onChange(v === NONE ? "" : v)}>
+      <SelectTrigger size="sm" aria-label={label} className={cn("bg-card", className)}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper" align="start">
+        {options.map((o) => (
+          <SelectItem key={o.value || NONE} value={o.value || NONE}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

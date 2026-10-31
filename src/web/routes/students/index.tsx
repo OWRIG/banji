@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import { ClassTabs, Delta, Empty, PageHeader, QueryState } from "@/web/components/common"
+import { ClassTabs, Delta, Empty, PageHeader, Picker, QueryState } from "@/web/components/common"
 import { Badge } from "@/web/components/ui/badge"
 import { Input } from "@/web/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
@@ -23,18 +23,15 @@ function StudentsPage() {
       <ClassTabs />
       <div className="no-print mb-3 flex flex-wrap items-center gap-2">
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="h-8 w-40" />
-        <select
-          className="h-8 rounded-md border bg-card px-2 text-sm"
-          value={groupId ?? ""}
-          onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : undefined)}
-        >
-          <option value="">全部小组</option>
-          {(groups.data ?? []).map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}组
-            </option>
-          ))}
-        </select>
+        <Picker
+          label="小组"
+          value={groupId ? String(groupId) : ""}
+          onChange={(v) => setGroupId(v ? Number(v) : undefined)}
+          options={[
+            { value: "", label: "全部小组" },
+            ...(groups.data ?? []).map((g) => ({ value: String(g.id), label: `${g.name}组` })),
+          ]}
+        />
       </div>
       <QueryState query={list}>
         {({ rows, facts }) =>

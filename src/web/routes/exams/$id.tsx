@@ -15,7 +15,7 @@ import {
 } from "@/modules/exams/shared"
 import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
-import { Empty, PageHeader, QueryState } from "@/web/components/common"
+import { Empty, PageHeader, Picker, QueryState } from "@/web/components/common"
 import { useDangerOp } from "@/web/components/danger"
 import { Button } from "@/web/components/ui/button"
 import { Input } from "@/web/components/ui/input"
@@ -339,39 +339,34 @@ function Analysis({ detail }: { detail: Detail }) {
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">科目</span>
-        <select
-          className="h-8 rounded-md border bg-card px-2"
+        <Picker
+          label="科目"
           value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-        >
-          {detail.subjects.map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </select>
+          onChange={setSubject}
+          options={detail.subjects.map((s) => ({ value: s, label: s }))}
+        />
         <span className="ml-2 text-muted-foreground">对比</span>
-        <select
-          className="h-8 rounded-md border bg-card px-2"
-          value={compareTo ?? ""}
-          onChange={(e) => setCompareTo(e.target.value ? Number(e.target.value) : undefined)}
-        >
-          <option value="">上一场考试</option>
-          {(others.data ?? [])
-            .filter((e) => e.id !== exam.id)
-            .map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.title}
-              </option>
-            ))}
-        </select>
+        <Picker
+          label="对比的考试"
+          value={compareTo ? String(compareTo) : ""}
+          onChange={(v) => setCompareTo(v ? Number(v) : undefined)}
+          options={[
+            { value: "", label: "上一场考试" },
+            ...(others.data ?? [])
+              .filter((e) => e.id !== exam.id)
+              .map((e) => ({ value: String(e.id), label: e.title })),
+          ]}
+        />
         <span className="ml-2 text-muted-foreground">按</span>
-        <select
-          className="h-8 rounded-md border bg-card px-2"
+        <Picker
+          label="比较方式"
           value={by}
-          onChange={(e) => setBy(e.target.value as "rank" | "score")}
-        >
-          <option value="rank">名次变化</option>
-          <option value="score">分数变化</option>
-        </select>
+          onChange={(v) => setBy(v as "rank" | "score")}
+          options={[
+            { value: "rank", label: "名次变化" },
+            { value: "score", label: "分数变化" },
+          ]}
+        />
       </div>
 
       <QueryState query={analysis}>
