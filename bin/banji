@@ -1,0 +1,5 @@
+#!/bin/sh
+# 班级工作台命令行。可以在任何目录下运行：/path/to/项目/bin/banji brief
+# 想直接输入 banji：把这个目录加进 PATH，或者 ln -s "$(pwd)/bin/banji" /usr/local/bin/banji
+DIR="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")/.." && pwd)"
+exec "$DIR/node_modules/.bin/tsx" --tsconfig "$DIR/tsconfig.json" "$DIR/src/cli/index.ts" "$@"

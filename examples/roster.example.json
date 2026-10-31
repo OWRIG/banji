@@ -1,0 +1,20 @@
+{
+  "classes": [
+    {
+      "code": "705",
+      "name": "七5班",
+      "roles": "班主任,英语",
+      "students": [
+        { "studentNo": "70501", "name": "示例甲", "gender": "男", "group": "1" },
+        { "studentNo": "70502", "name": "示例乙", "gender": "女", "group": "1" },
+        { "studentNo": "70503", "name": "示例丙", "gender": "女", "group": "2" }
+      ]
+    },
+    {
+      "code": "707",
+      "name": "七7班",
+      "roles": "英语",
+      "students": [{ "studentNo": "70701", "name": "示例丁", "gender": "男" }]
+    }
+  ]
+}

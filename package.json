@@ -1,5 +1,5 @@
 {
-  "name": "panshi",
+  "name": "banji",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/server/db/migrate.ts",
     "db:backup": "tsx src/server/db/backup.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "banji": "tsx src/cli/index.ts"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
