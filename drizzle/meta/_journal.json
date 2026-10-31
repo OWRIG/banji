@@ -8,6 +8,13 @@
       "when": 1793460968444,
       "tag": "0000_outgoing_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793462804002,
+      "tag": "0001_blushing_jack_flag",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import type { LinkProps } from "@tanstack/react-router"
 import type { ComponentType } from "react"
 import { checksWeb } from "@/modules/checks/web"
+import { notesWeb } from "@/modules/notes/web"
 import { pointsWeb } from "@/modules/points/web"
 import type { OpData } from "@/server/registry"
 
@@ -19,4 +20,4 @@ export type WebModule = {
   ProfileCard?: ComponentType<{ profile: OpData<"students.profile"> }>
 }
 
-export const webModules: WebModule[] = [checksWeb, pointsWeb]
+export const webModules: WebModule[] = [checksWeb, notesWeb, pointsWeb]
