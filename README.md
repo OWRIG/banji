@@ -58,7 +58,7 @@ Excel 名单格式五花八门，最省事的办法是让 agent 读你的 Excel�
 banji brief                                  # 今日概览
 banji pending 705                            # 705 班待过关名单
 banji record 12 李明=95 王芳=请假 张三=100    # 登记第 12 场检查
-banji add 课堂发言/答对 李明 王芳              # 加分
+banji deduct 未交作业 李明 王芳               # 扣分（加分由系统自动结算）
 banji undo                                   # 撤销最近一次操作
 banji history                                # 操作记录
 banji ops                                    # 全部操作；banji call <操作> '<JSON>' 调用任意操作

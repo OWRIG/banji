@@ -18,13 +18,12 @@ function PointsPage() {
   const code = current?.code
   const students = useOp("students.list", { class: code }, { enabled: !!code })
   const groups = useOp("groups.list", { class: code ?? "" }, { enabled: !!code })
-  const rules = useOp("rules.list", { includeDisabled: false })
-  const add = useOpMutation("points.add")
+  const deduct = useOpMutation("points.deduct")
   const revoke = useOpMutation("points.revoke")
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [q, setQ] = useState("")
-  const [note, setNote] = useState("")
-  const [customDelta, setCustomDelta] = useState("")
+  const [reason, setReason] = useState("")
+  const [amount, setAmount] = useState(1)
   const [period, setPeriod] = useState<Period>("week")
   const board = useOp("points.leaderboard", { class: code, period }, { enabled: !!code })
   const log = useOp("points.log", { class: code, limit: 50 }, { enabled: !!code })
@@ -46,18 +45,27 @@ function PointsPage() {
     })
   }
 
-  async function give(input: { rule?: number; delta?: number }) {
-    if (selected.size === 0) return
-    await add.mutateAsync({ students: [...selected], class: code, note, ...input })
+  async function submit() {
+    if (selected.size === 0 || !reason.trim()) return
+    await deduct.mutateAsync({ students: [...selected], class: code, points: amount, reason: reason.trim() })
     setSelected(new Set())
-    setNote("")
+    setReason("")
+    setAmount(1)
   }
 
-  const manual = (rules.data ?? []).filter((r) => !r.autoTrigger)
+  // 常用原因：最近用过的扣分原因，没有时给几个例子
+  const reasons = useMemo(() => {
+    const used = (log.data ?? []).filter((e) => e.delta < 0 && !e.auto && e.note).map((e) => e.note)
+    const list = [...new Set(used)].slice(0, 6)
+    return list.length ? list : ["未交作业", "上课讲话", "迟到"]
+  }, [log.data])
 
   return (
     <div>
-      <PageHeader title="加分积分" subtitle="先选学生，再点规则就入账。点错了可以马上撤销。" />
+      <PageHeader
+        title="积分"
+        subtitle="加分由系统自动结算（默写满分、背书一次过、考试进步前列）。这里只需要扣分：选学生，写原因。"
+      />
       <ClassTabs />
 
       <section className="mb-6 rounded-lg border bg-card p-4">
@@ -113,60 +121,43 @@ function PointsPage() {
           }
         </QueryState>
 
-        <div className="mt-4 space-y-2 border-t pt-4">
-          <div className="flex flex-wrap gap-1.5">
-            {manual
-              .filter((r) => r.delta > 0)
-              .map((r) => (
-                <Button
-                  key={r.id}
-                  size="sm"
-                  variant="outline"
-                  disabled={!selected.size || add.isPending}
-                  onClick={() => give({ rule: r.id })}
-                >
-                  {r.name} <span className="text-success">+{r.delta}</span>
-                </Button>
-              ))}
+        <div className="no-print mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+          <div className="inline-flex rounded-md border p-0.5 text-sm">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setAmount(n)}
+                className={cn(
+                  "rounded px-2.5 py-0.5 tabular-nums",
+                  amount === n && "bg-primary text-primary-foreground",
+                )}
+              >
+                -{n}
+              </button>
+            ))}
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {manual
-              .filter((r) => r.delta < 0)
-              .map((r) => (
-                <Button
-                  key={r.id}
-                  size="sm"
-                  variant="outline"
-                  disabled={!selected.size || add.isPending}
-                  onClick={() => give({ rule: r.id })}
-                >
-                  {r.name} <span className="text-destructive">{r.delta}</span>
-                </Button>
-              ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="备注（可选）"
-              className="h-8 w-56"
-            />
-            <Input
-              value={customDelta}
-              onChange={(e) => setCustomDelta(e.target.value)}
-              placeholder="自定义分值"
-              inputMode="numeric"
-              className="h-8 w-24"
-            />
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!selected.size || !Number(customDelta) || !note}
-              onClick={() => give({ delta: Number(customDelta) })}
-              title="自定义分值需要写备注"
-            >
-              按自定义分值入账
-            </Button>
+          <Input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void submit()}
+            placeholder="扣分原因（必填）"
+            className="h-8 w-56"
+          />
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={!selected.size || !reason.trim() || deduct.isPending}
+            onClick={() => void submit()}
+          >
+            扣 {amount} 分{selected.size ? `（${selected.size} 人）` : ""}
+          </Button>
+          <div className="flex flex-wrap gap-1">
+            {reasons.map((r) => (
+              <Button key={r} size="xs" variant="ghost" onClick={() => setReason(r)}>
+                {r}
+              </Button>
+            ))}
           </div>
         </div>
       </section>

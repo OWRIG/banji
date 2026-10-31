@@ -180,12 +180,12 @@ program
   })
 
 program
-  .command("add <rule> <students...>")
-  .description("按规则加分/扣分，例如：banji add 课堂发言/答对 李明 王芳")
+  .command("deduct <reason> <students...>")
+  .description("扣分（要写原因），例如：banji deduct 未交作业 李明 王芳")
   .option("--class <class>", "班级")
-  .option("--note <text>", "备注")
-  .action(async (rule: string, students: string[], opts: { class?: string; note?: string }) => {
-    await exec("points.add", { rule, students, class: opts.class, note: opts.note ?? "" })
+  .option("-n, --points <n>", "扣几分", "1")
+  .action(async (reason: string, students: string[], opts: { class?: string; points: string }) => {
+    await exec("points.deduct", { reason, students, class: opts.class, points: Number(opts.points) })
   })
 
 program

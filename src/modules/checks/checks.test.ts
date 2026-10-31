@@ -183,10 +183,17 @@ describe("背书", () => {
 })
 
 describe("积分", () => {
-  it("按规则加分、按组汇总，删除后回滚", async () => {
+  it("扣分要写原因、按组汇总，删除后回滚", async () => {
+    await expect(runOp(ops["points.deduct"], { class: "705", students: ["张三"], reason: "" }, as)).rejects.toThrow(
+      /原因/,
+    )
     const before = await totalPoints("张三")
-    const add = await runOp(ops["points.add"], { class: "705", students: ["张三", "赵四"], rule: "课堂发言/答对" }, as)
-    expect(await totalPoints("张三")).toBe(before + 1)
+    const add = await runOp(
+      ops["points.deduct"],
+      { class: "705", students: ["张三", "赵四"], points: 2, reason: "未交作业" },
+      as,
+    )
+    expect(await totalPoints("张三")).toBe(before - 2)
 
     const board = await runOp(ops["points.leaderboard"], { class: "705" }, as)
     const g2 = board.data.groups.find((g) => g.name === "2")

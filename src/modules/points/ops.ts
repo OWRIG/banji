@@ -71,7 +71,8 @@ export const addPoints = defineOp({
   name: "points.add",
   title: "加分/扣分",
   description:
-    "给一个或多个学生加分或扣分。rule 填规则名（见 rules.list），也可以不填规则、直接给 delta 分值并写备注。自动规则不能手动使用。",
+    "给一个或多个学生加分或扣分（不常用：加分一般由自动规则结算，扣分用 points.deduct）。" +
+    "rule 填老师自己建的规则名（见 rules.list），或者不填规则、直接给 delta 分值并在 note 写原因。自动规则不能手动使用。",
   kind: "write",
   input: z.object({
     students: z.array(studentRef).min(1),
@@ -99,6 +100,7 @@ export const addPoints = defineOp({
     }
     const delta = input.delta ?? rule?.delta
     if (delta == null || delta === 0) throw new OpError(400, "请选择规则，或填写分值")
+    if (!rule && !input.note) throw new OpError(400, "不按规则加减分时，请在 note 里写原因")
     const ids: number[] = []
     for (const s of ss) {
       const e = await ctx.insert(pointEvents, {
@@ -114,6 +116,39 @@ export const addPoints = defineOp({
     const names = ss.slice(0, 3).map((s) => s.name)
     ctx.summary = `${names.join("、")}${ss.length > 3 ? ` 等 ${ss.length} 人` : ""} ${delta > 0 ? "+" : ""}${delta}（${rule?.name ?? input.note ?? ""}）`
     return { eventIds: ids, delta, students: ss.map((s) => s.name) }
+  },
+})
+
+export const deductPoints = defineOp({
+  name: "points.deduct",
+  title: "扣分",
+  description:
+    "给一个或多个学生扣分，必须写原因（例如「未交作业」「上课讲话」）。加分由系统按自动规则结算（默写满分、背书一次过、考试进步），一般不需要手动加。",
+  kind: "write",
+  input: z.object({
+    students: z.array(studentRef).min(1),
+    class: classRef.optional(),
+    points: z.number().int().min(1).max(20).default(1).describe("扣几分（正数），默认 1"),
+    reason: z.string().trim().min(1, "请写扣分原因").max(200).describe("扣分原因"),
+  }),
+  run: async (ctx, input) => {
+    const cls = await resolveOptionalClass(input.class)
+    const ss = await resolveStudents(input.students, cls?.id)
+    const ids: number[] = []
+    for (const s of ss) {
+      const e = await ctx.insert(pointEvents, {
+        studentId: s.id,
+        delta: -input.points,
+        ruleId: null,
+        ruleName: "扣分",
+        note: input.reason,
+        actor: ctx.actor,
+      })
+      ids.push(e.id)
+    }
+    const names = ss.slice(0, 3).map((s) => s.name)
+    ctx.summary = `${names.join("、")}${ss.length > 3 ? ` 等 ${ss.length} 人` : ""} -${input.points}（${input.reason}）`
+    return { eventIds: ids, delta: -input.points, students: ss.map((s) => s.name) }
   },
 })
 

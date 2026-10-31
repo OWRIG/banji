@@ -2,16 +2,16 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm"
 import { defineModule } from "@/server/core/module"
 import { db } from "@/server/db"
 import { pointEvents, pointRules } from "@/server/db/schema"
-import { addPoints, leaderboard, listRules, pointsLog, revokePoints, saveRule } from "./ops"
+import { addPoints, deductPoints, leaderboard, listRules, pointsLog, revokePoints, saveRule } from "./ops"
 
 // 「积分」核心模块：规则、流水、积分榜。其他模块通过积分引擎（core/points-engine.ts）自动加分。
 
 export const pointsModule = defineModule({
   id: "points",
   title: "积分",
-  description: "加分扣分、积分规则、积分榜",
+  description: "积分：加分由自动规则结算，老师手动扣分（写原因）；积分榜",
   core: true,
-  ops: [addPoints, revokePoints, pointsLog, leaderboard, listRules, saveRule],
+  ops: [deductPoints, addPoints, revokePoints, pointsLog, leaderboard, listRules, saveRule],
   tables: [pointRules, pointEvents],
 
   studentFacts: [

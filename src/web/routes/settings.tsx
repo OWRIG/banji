@@ -154,36 +154,33 @@ function HistorySection() {
 function RulesSection() {
   const rules = useOp("rules.list", { includeDisabled: true })
   const save = useOpMutation("rules.save")
-  const [name, setName] = useState("")
-  const [delta, setDelta] = useState("1")
-
-  async function add(e: FormEvent) {
-    e.preventDefault()
-    await save.mutateAsync({ name, delta: Number(delta) })
-    setName("")
-  }
 
   return (
     <Section
-      title="积分规则"
-      desc="停用的规则不会出现在加分按钮里。自动规则停用后，它产生的积分会被撤销；重新启用会补回。"
+      title="自动加分"
+      desc="加分由系统按这些规则自动结算，同一件事只加一次。停用后已加的分会撤销，重新启用会补回；改分值会重新结算。"
     >
       <QueryState query={rules}>
         {(rows) => (
-          <div className="grid gap-1.5 sm:grid-cols-2">
+          <div className="divide-y rounded-md border">
             {rows.map((r) => (
-              <div key={r.id} className="flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
-                <span className={r.enabled ? "" : "text-muted-foreground line-through"}>{r.name}</span>
-                <span className={r.delta > 0 ? "text-success" : "text-destructive"}>
-                  {r.delta > 0 ? `+${r.delta}` : r.delta}
-                </span>
-                {r.autoLabel && <span className="text-xs text-gold">自动</span>}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="ml-auto"
-                  onClick={() => save.mutate({ id: r.id, enabled: !r.enabled })}
-                >
+              <div key={r.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
+                <div className="min-w-0 flex-1">
+                  <div className={r.enabled ? "font-medium" : "text-muted-foreground line-through"}>{r.name}</div>
+                  {r.autoLabel && <div className="text-xs text-muted-foreground">{r.autoLabel}</div>}
+                </div>
+                <Input
+                  key={`${r.id}-${r.delta}`}
+                  defaultValue={String(r.delta)}
+                  inputMode="numeric"
+                  aria-label={`${r.name} 分值`}
+                  className="h-7 w-14 text-right tabular-nums"
+                  onBlur={(e) => {
+                    const n = Number(e.currentTarget.value)
+                    if (Number.isInteger(n) && n !== 0 && n !== r.delta) save.mutate({ id: r.id, delta: n })
+                  }}
+                />
+                <Button size="xs" variant="ghost" onClick={() => save.mutate({ id: r.id, enabled: !r.enabled })}>
                   {r.enabled ? "停用" : "启用"}
                 </Button>
               </div>
@@ -191,25 +188,6 @@ function RulesSection() {
           </div>
         )}
       </QueryState>
-      <form onSubmit={add} className="mt-3 flex flex-wrap gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="新规则名称"
-          className="h-8 w-48"
-          required
-        />
-        <Input
-          value={delta}
-          onChange={(e) => setDelta(e.target.value)}
-          inputMode="numeric"
-          className="h-8 w-20"
-          placeholder="分值"
-        />
-        <Button size="sm" type="submit" disabled={!Number(delta)}>
-          添加规则
-        </Button>
-      </form>
     </Section>
   )
 }
