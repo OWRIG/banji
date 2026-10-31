@@ -1,0 +1,1 @@
+ALTER TABLE `checks` ADD `require_pass` integer DEFAULT true NOT NULL;

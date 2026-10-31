@@ -92,8 +92,12 @@ export const checksWeb: WebModule = {
                     {c.title}
                   </Link>
                   <span className="text-muted-foreground">
-                    {checkKinds[c.kind as CheckKind]} · 已录 {c.stats.entered} 人 · 达标率 {pct(c.stats.passRate)} ·
-                    未达标 {c.stats.failed}
+                    {checkKinds[c.kind as CheckKind]} · 已录 {c.stats.entered} 人
+                    {c.requirePass
+                      ? ` · 达标率 ${pct(c.stats.passRate)} · 未达标 ${c.stats.failed}`
+                      : c.stats.avg != null
+                        ? ` · 平均分 ${fmt(c.stats.avg)}`
+                        : ""}
                   </span>
                 </li>
               ))}

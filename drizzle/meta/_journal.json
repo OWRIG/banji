@@ -22,6 +22,13 @@
       "when": 1793464556150,
       "tag": "0002_lazy_black_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793471750851,
+      "tag": "0003_skinny_photon",
+      "breakpoints": true
     }
   ]
 }

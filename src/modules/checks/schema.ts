@@ -16,8 +16,10 @@ export const checks = sqliteTable(
     title: text("title").notNull(),
     // 业务日期 YYYY-MM-DD，可以为空（历史数据没有日期）
     date: text("date"),
-    // score 分数登记 / mark 快速标记
+    // score 分数登记 / mark 快速标记 / level 分等级（背书：抄书、读书、背部分、全背）
     mode: text("mode").notNull().default("score"),
+    // 是否判定过关：不判定时只记录成绩，不产生待过关
+    requirePass: integer("require_pass", { mode: "boolean" }).notNull().default(true),
     passLine: real("pass_line").notNull().default(80),
     fullScore: real("full_score").notNull().default(100),
     createdAt: text("created_at").notNull().$defaultFn(now),
@@ -36,7 +38,7 @@ export const checkResults = sqliteTable(
       .notNull()
       .references(() => students.id),
     score: real("score"),
-    // pass 过 / pass_retry 二次过 / fail 未过 / leave 请假 / exempt 免
+    // pass 过 / pass_retry 二次过 / fail 未过 / leave 请假 / exempt 免；分等级时 copy 抄书 / read 读书 / partial 背部分 / full 全背
     mark: text("mark"),
     // 销账：未达标的学生补过之后记下日期
     clearedAt: text("cleared_at"),

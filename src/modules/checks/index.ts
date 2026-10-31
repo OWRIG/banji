@@ -43,7 +43,7 @@ export const checksModule = defineModule({
       sourceType: SOURCE,
       triggers: {
         "checks.dictation_full": "默写满分（分数登记且达到满分）",
-        "checks.recite_first_pass": "背书一次过（标记为“过”）",
+        "checks.recite_first_pass": "背书一次过（标记为“全背”或“过”）",
       },
       awards: async (ctx, trigger, sourceIds) => {
         const rows = await ctx.db
@@ -55,7 +55,8 @@ export const checksModule = defineModule({
           .filter(({ r, c }) => {
             if (trigger === "checks.dictation_full")
               return c.kind === "dictation" && r.score != null && r.score >= c.fullScore
-            if (trigger === "checks.recite_first_pass") return c.kind === "recite" && r.mark === "pass"
+            if (trigger === "checks.recite_first_pass")
+              return c.kind === "recite" && (r.mark === "full" || r.mark === "pass")
             return false
           })
           .map(({ r }) => ({ sourceId: r.id, studentId: r.studentId }))

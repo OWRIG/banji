@@ -2,7 +2,17 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { cn } from "cn"
 import { type ClipboardEvent, type KeyboardEvent, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type CheckKind, checkKinds, type Mark, marks, parseResultValue, resultText } from "@/modules/checks/shared"
+import {
+  type CheckKind,
+  type CheckMode,
+  checkKinds,
+  checkModes,
+  levels,
+  marks,
+  modeMarks,
+  parseResultValue,
+  resultText,
+} from "@/modules/checks/shared"
 import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
 import { PageHeader, QueryState, Stat } from "@/web/components/common"
@@ -48,7 +58,8 @@ function CheckEditor({ detail }: { detail: Detail }) {
   // 正在保存的值：回车后焦点移走还会触发一次失焦保存，用它避免重复提交
   const saving = useRef<Record<number, string>>({})
 
-  const isMark = check.mode === "mark"
+  const isMark = check.mode !== "score"
+  const update = useOpMutation("checks.update")
 
   async function save(index: number, value: string) {
     const row = rows[index]
@@ -122,12 +133,21 @@ function CheckEditor({ detail }: { detail: Detail }) {
         subtitle={
           <>
             {check.className} · {checkKinds[check.kind as CheckKind]} · {check.date ?? "无日期"}
-            {!isMark && ` · 过关线 ${fmt(check.passLine)} / 满分 ${fmt(check.fullScore)}`}
+            {` · ${checkModes[check.mode as CheckMode] ?? check.mode}`}
+            {!isMark && ` · 满分 ${fmt(check.fullScore)}`}
+            {check.requirePass ? (isMark ? " · 判定过关" : ` · 过关线 ${fmt(check.passLine)}`) : " · 不判定过关"}
             {detail.previousCheck && ` · 上回：${detail.previousCheck.title}`}
           </>
         }
         actions={
           <>
+            <Button
+              variant="outline"
+              onClick={() => update.mutate({ check: check.id, requirePass: !check.requirePass })}
+              title={check.requirePass ? "关闭后不再产生待过关" : "打开后未达标的学生进入待过关名单"}
+            >
+              {check.requirePass ? "关闭过关判定" : "开启过关判定"}
+            </Button>
             <Button variant="outline" onClick={exportCsv}>
               导出 CSV
             </Button>
@@ -142,18 +162,25 @@ function CheckEditor({ detail }: { detail: Detail }) {
       />
       {del.dialog}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Stat label="已录" value={`${stats.entered}/${rows.length}`} />
-        <Stat label="达标率" value={pct(stats.passRate)} tone="brand" />
-        <Stat label="未达标" value={stats.failed} tone={stats.failed ? "bad" : undefined} />
+        {check.requirePass && (
+          <>
+            <Stat label="达标率" value={pct(stats.passRate)} tone="brand" />
+            <Stat label="未达标" value={stats.failed} tone={stats.failed ? "bad" : undefined} />
+          </>
+        )}
+        {!check.requirePass && !isMark && <Stat label="平均分" value={fmt(stats.avg) || "—"} tone="brand" />}
+        {check.mode === "level" &&
+          [...levels].reverse().map((l) => <Stat key={l} label={marks[l]} value={stats.levels[l] ?? 0} />)}
         <Stat label="请假" value={stats.leave} />
         {!isMark && <Stat label="满分" value={stats.full} tone="good" />}
       </div>
 
-      <p className="no-print mb-3 text-xs text-muted-foreground">
+      <p className="no-print mb-4 text-xs text-muted-foreground">
         {isMark
-          ? "点按钮直接保存。"
-          : "输入后按回车跳到下一位并自动保存；可以从 Excel 复制一整列分数粘贴到任意一行。也可以填 请假 / 免 / 过 / 未过。"}
+          ? "点按钮直接保存，再点一次取消。"
+          : "输入后按回车跳到下一位并自动保存；可以从 Excel 复制一整列分数粘贴到任意一行。也可以填 请假 / 免。"}
       </p>
 
       <div className="overflow-hidden rounded-lg border bg-card">
@@ -184,7 +211,7 @@ function CheckEditor({ detail }: { detail: Detail }) {
                   <td className="px-3 py-1">
                     {isMark ? (
                       <div className="no-print flex flex-wrap gap-1">
-                        {(Object.keys(marks) as Mark[]).map((m) => (
+                        {(modeMarks[check.mode as CheckMode] ?? modeMarks.mark).map((m) => (
                           <Button
                             key={m}
                             size="xs"

@@ -73,7 +73,11 @@ describe("默写 → 待过关 → 销账", () => {
   let checkId: number
 
   it("登记后统计正确，请假不计入分母", async () => {
-    const c = await runOp(ops["checks.create"], { class: "705", title: "U3 默写 1", date: "2026-11-02" }, as)
+    const c = await runOp(
+      ops["checks.create"],
+      { class: "705", title: "U3 默写 1", date: "2026-11-02", requirePass: true },
+      as,
+    )
     checkId = c.data.id
     const r = await runOp(
       ops["checks.record"],
@@ -160,9 +164,71 @@ describe("默写 → 待过关 → 销账", () => {
 })
 
 describe("背书", () => {
-  it("一次过自动 +1，二次过不加", async () => {
+  it("默认分等级：全背自动 +1，其他等级不加分，也不进待过关", async () => {
     const c = await runOp(ops["checks.create"], { class: "705", kind: "recite", title: "U3 课文背诵" }, as)
-    expect(c.data.mode).toBe("mark")
+    expect(c.data.mode).toBe("level")
+    expect(c.data.requirePass).toBe(false)
+    const before = await totalPoints("赵四")
+    const wang = await totalPoints("王芳")
+    const out = await runOp(
+      ops["checks.record"],
+      {
+        check: c.data.id,
+        results: [
+          { student: "赵四", value: "全背" },
+          { student: "王芳", value: "背部分" },
+          { student: "李明", value: "抄书" },
+        ],
+      },
+      as,
+    )
+    expect(out.data.stats.levels).toEqual({ full: 1, partial: 1, copy: 1 })
+    expect(out.data.stats.passRate).toBeNull()
+    expect(await totalPoints("赵四")).toBe(before + 1)
+    expect(await totalPoints("王芳")).toBe(wang)
+    const pending = await runOp(ops["pending.list"], { class: "705" }, as)
+    expect(pending.data.filter((p) => p.check.id === c.data.id)).toHaveLength(0)
+
+    // 分等级不能填分数，也不能填「过」
+    await expect(
+      runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: 90 }] }, as),
+    ).rejects.toThrow(/分等级/)
+    await expect(
+      runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: "过" }] }, as),
+    ).rejects.toThrow(/抄书/)
+  })
+
+  it("判定过关时，没到全背的进待过关", async () => {
+    const c = await runOp(
+      ops["checks.create"],
+      { class: "705", kind: "recite", title: "U4 课文背诵", requirePass: true },
+      as,
+    )
+    await runOp(
+      ops["checks.record"],
+      {
+        check: c.data.id,
+        results: [
+          { student: "赵四", value: "全背" },
+          { student: "王芳", value: "读书" },
+        ],
+      },
+      as,
+    )
+    const pending = await runOp(ops["pending.list"], { class: "705" }, as)
+    expect(pending.data.filter((p) => p.check.id === c.data.id).map((p) => p.student.name)).toEqual(["王芳"])
+    // 改成不判定：待过关清空
+    await runOp(ops["checks.update"], { check: c.data.id, requirePass: false }, as)
+    const after = await runOp(ops["pending.list"], { class: "705" }, as)
+    expect(after.data.filter((p) => p.check.id === c.data.id)).toHaveLength(0)
+  })
+
+  it("快速标记：一次过 +1，二次过不加", async () => {
+    const c = await runOp(
+      ops["checks.create"],
+      { class: "705", kind: "recite", title: "U5 背诵", mode: "mark", requirePass: true },
+      as,
+    )
     const before = await totalPoints("赵四")
     await runOp(
       ops["checks.record"],
@@ -230,7 +296,11 @@ describe("操作记录", () => {
 
 describe("检查总表", () => {
   it("学生 × 场次，补过的带标记", async () => {
-    const c = await runOp(ops["checks.create"], { class: "705", title: "总表测试", date: "2099-01-01" }, as)
+    const c = await runOp(
+      ops["checks.create"],
+      { class: "705", title: "总表测试", date: "2099-01-01", requirePass: true },
+      as,
+    )
     await runOp(
       ops["checks.record"],
       {
@@ -251,5 +321,28 @@ describe("检查总表", () => {
     expect(value("王芳")).toBe("请假")
     expect(value("张三")).toBe("")
     await expect(runOp(ops["checks.sheet"], { class: "999" }, as)).rejects.toThrow()
+  })
+})
+
+describe("不判定过关的默写", () => {
+  it("默认只记录分数：没有达标率，不进待过关，满分照样加分", async () => {
+    const c = await runOp(ops["checks.create"], { class: "705", title: "只记分的默写" }, as)
+    expect(c.data.requirePass).toBe(false)
+    const before = await totalPoints("李明")
+    const out = await runOp(
+      ops["checks.record"],
+      {
+        check: c.data.id,
+        results: [
+          { student: "李明", value: 100 },
+          { student: "王芳", value: 40 },
+        ],
+      },
+      as,
+    )
+    expect(out.data.stats).toMatchObject({ entered: 2, passRate: null, failed: 0, avg: 70, full: 1 })
+    expect(await totalPoints("李明")).toBe(before + 1)
+    const pending = await runOp(ops["pending.list"], { class: "705" }, as)
+    expect(pending.data.filter((p) => p.check.id === c.data.id)).toHaveLength(0)
   })
 })

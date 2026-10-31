@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { cn } from "cn"
 import { type FormEvent, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
-import { type CheckKind, checkKinds } from "@/modules/checks/shared"
+import { type CheckKind, type CheckMode, checkKinds, checkModes, defaultMode } from "@/modules/checks/shared"
 import { pct, today } from "@/shared/format"
 import { ClassTabs, Empty, PageHeader, QueryState } from "@/web/components/common"
 import { Button } from "@/web/components/ui/button"
+import { Checkbox } from "@/web/components/ui/checkbox"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/web/components/ui/dialog"
 import { Input } from "@/web/components/ui/input"
 import { Label } from "@/web/components/ui/label"
@@ -113,6 +115,12 @@ async function exportSheet(classCode: string) {
   }
 }
 
+const modeHints: Record<CheckMode, string> = {
+  score: "逐个填分数，可以从 Excel 整列粘贴。",
+  level: "抄书 / 读书 / 背部分 / 全背，适合背书。全背自动 +1 分。",
+  mark: "过 / 二次过 / 未过 / 请假 / 免。",
+}
+
 function NewCheckDialog(props: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -125,7 +133,8 @@ function NewCheckDialog(props: {
   const [date, setDate] = useState(today())
   const [passLine, setPassLine] = useState("80")
   const [fullScore, setFullScore] = useState("100")
-  const [mode, setMode] = useState<"score" | "mark">("score")
+  const [mode, setMode] = useState<CheckMode>("score")
+  const [requirePass, setRequirePass] = useState(false)
   const create = useOpMutation("checks.create", { silent: true })
 
   async function submit(e: FormEvent) {
@@ -136,6 +145,7 @@ function NewCheckDialog(props: {
       title,
       date: date || null,
       mode,
+      requirePass,
       passLine: Number(passLine),
       fullScore: Number(fullScore),
     })
@@ -160,7 +170,7 @@ function NewCheckDialog(props: {
                 variant={kind === k ? "default" : "outline"}
                 onClick={() => {
                   setKind(k)
-                  setMode(k === "recite" ? "mark" : "score")
+                  setMode(defaultMode(k))
                 }}
               >
                 {checkKinds[k]}
@@ -178,40 +188,67 @@ function NewCheckDialog(props: {
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2.5">
               <Label htmlFor="date">日期（可空）</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="space-y-2.5">
-              <Label htmlFor="pass">过关线</Label>
-              <Input
-                id="pass"
-                inputMode="decimal"
-                value={passLine}
-                onChange={(e) => setPassLine(e.target.value)}
-                disabled={mode === "mark"}
-              />
-            </div>
-            <div className="space-y-2.5">
-              <Label htmlFor="full">满分</Label>
-              <Input
-                id="full"
-                inputMode="decimal"
-                value={fullScore}
-                onChange={(e) => setFullScore(e.target.value)}
-                disabled={mode === "mark"}
-              />
-            </div>
+            {mode === "score" && (
+              <div className="space-y-2.5">
+                <Label htmlFor="full">满分</Label>
+                <Input id="full" inputMode="decimal" value={fullScore} onChange={(e) => setFullScore(e.target.value)} />
+              </div>
+            )}
           </div>
-          <div className="flex flex-col gap-2.5 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={mode === "score"} onChange={() => setMode("score")} /> 分数登记
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={mode === "mark"} onChange={() => setMode("mark")} /> 快速标记（过 / 未过 /
-              请假 / 免）
-            </label>
+
+          <div className="space-y-2.5">
+            <Label>登记方式</Label>
+            <div className="inline-flex rounded-md border bg-card p-0.5 text-sm">
+              {(Object.keys(checkModes) as CheckMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={cn(
+                    "rounded px-3 py-1 text-muted-foreground transition-colors hover:text-foreground",
+                    mode === m && "bg-muted font-medium text-foreground",
+                  )}
+                >
+                  {checkModes[m]}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">{modeHints[mode]}</p>
+          </div>
+
+          <div className="space-y-2.5">
+            <Label className="font-normal">
+              <Checkbox checked={requirePass} onCheckedChange={(on) => setRequirePass(on === true)} />
+              判定过关
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {requirePass
+                ? mode === "score"
+                  ? "低于过关线的学生进入待过关名单，补过后销账。"
+                  : mode === "level"
+                    ? "没到「全背」的学生进入待过关名单，补过后销账。"
+                    : "标记为「未过」的学生进入待过关名单，补过后销账。"
+                : "只记录结果，不产生待过关名单。之后也可以在这场检查里打开。"}
+            </p>
+            {requirePass && mode === "score" && (
+              <div className="flex items-center gap-2 text-sm">
+                <Label htmlFor="pass" className="font-normal text-muted-foreground">
+                  过关线
+                </Label>
+                <Input
+                  id="pass"
+                  inputMode="decimal"
+                  value={passLine}
+                  onChange={(e) => setPassLine(e.target.value)}
+                  className="w-24"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => props.onOpenChange(false)}>

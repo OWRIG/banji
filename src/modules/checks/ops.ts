@@ -10,10 +10,13 @@ import { today } from "@/shared/format"
 import { checkResults, checks } from "./schema"
 import {
   type CheckKind,
+  type CheckMode,
   checkKinds,
   checkModes,
   checkStats,
+  defaultMode,
   marks,
+  modeMarks,
   parseResultValue,
   resultStatus,
   resultText,
@@ -58,7 +61,10 @@ const dateField = z
 export const createCheck = defineOp({
   name: "checks.create",
   title: "新建检查",
-  description: `新建一场检查（${Object.values(checkKinds).join("/")}）。mode=score 登记分数，mode=mark 快速标记（${Object.values(marks).join("/")}）。默认过关线 80、满分 100。`,
+  description:
+    `新建一场检查（${Object.values(checkKinds).join("/")}）。登记方式 mode：score 登记分数；mark 快速标记（过/二次过/未过/请假/免）；` +
+    "level 分等级（抄书/读书/背部分/全背，背书默认用这个）。" +
+    "requirePass 是否判定过关：默认不判定，只记录；判定时分数低于过关线、标记为未过、等级不到全背的学生进入待过关名单。",
   kind: "write",
   input: z.object({
     class: classRef,
@@ -66,10 +72,11 @@ export const createCheck = defineOp({
     title: z.string().trim().min(1, "请填写标题").max(100),
     date: dateField,
     mode: z
-      .enum(["score", "mark"])
+      .enum(["score", "mark", "level"])
       .optional()
-      .describe(`${JSON.stringify(checkModes)}；背书默认 mark，其余默认 score`),
-    passLine: z.number().min(0).default(80),
+      .describe(`${JSON.stringify(checkModes)}；背书默认 level，其余默认 score`),
+    requirePass: z.boolean().default(false).describe("是否判定过关（未过关的进入待过关名单），默认不判定"),
+    passLine: z.number().min(0).default(80).describe("过关线（分数登记且判定过关时才用）"),
     fullScore: z.number().positive().default(100),
   }),
   run: async (ctx, input) => {
@@ -79,7 +86,8 @@ export const createCheck = defineOp({
       kind: input.kind,
       title: input.title,
       date: input.date ?? null,
-      mode: input.mode ?? (input.kind === "recite" ? "mark" : "score"),
+      mode: input.mode ?? defaultMode(input.kind),
+      requirePass: input.requirePass,
       passLine: input.passLine,
       fullScore: input.fullScore,
     })
@@ -91,13 +99,14 @@ export const createCheck = defineOp({
 export const updateCheck = defineOp({
   name: "checks.update",
   title: "修改检查",
-  description: "修改一场检查的标题、日期、过关线、满分。改过关线后达标情况会自动重算。",
+  description: "修改一场检查的标题、日期、是否判定过关、过关线、满分。达标情况和待过关名单会自动重算。",
   kind: "write",
   input: z.object({
     check: checkRef,
     class: classRef.optional(),
     title: z.string().trim().min(1).max(100).optional(),
     date: dateField,
+    requirePass: z.boolean().optional().describe("是否判定过关"),
     passLine: z.number().min(0).optional(),
     fullScore: z.number().positive().optional(),
   }),
@@ -261,8 +270,9 @@ export const recordResults = defineOp({
   name: "checks.record",
   title: "登记检查结果",
   description:
-    "给一场检查批量登记结果。value 可以是分数（数字），也可以是 过/二次过/未过/请假/免；传 null 或空字符串表示清除这条登记。" +
-    "达到满分的默写、一次过的背书会自动加分（只加一次）。未达标的学生会自动进入待过关池。",
+    "给一场检查批量登记结果。value 按登记方式填：分数登记填数字（也可以填 请假/免）；快速标记填 过/二次过/未过/请假/免；" +
+    "分等级填 抄书/读书/背部分/全背/请假/免。传 null 或空字符串表示清除这条登记。" +
+    "默写满分、背书全背（或一次过）会自动加分（只加一次）。判定过关的检查里，未达标的学生会自动进入待过关名单。",
   kind: "write",
   input: z.object({
     check: checkRef,
@@ -271,7 +281,9 @@ export const recordResults = defineOp({
       .array(
         z.object({
           student: studentRef,
-          value: z.union([z.number(), z.string(), z.null()]).describe("分数，或 过/二次过/未过/请假/免，null 表示清除"),
+          value: z
+            .union([z.number(), z.string(), z.null()])
+            .describe("分数，或 过/二次过/未过/抄书/读书/背部分/全背/请假/免，null 表示清除"),
         }),
       )
       .min(1),
@@ -285,7 +297,9 @@ export const recordResults = defineOp({
     )
 
     const bad = input.results.filter((r) => parseResultValue(r.value) === null).map((r) => `${r.student}=${r.value}`)
-    if (bad.length) throw new OpError(400, `看不懂这些结果：${bad.join("、")}。可以填分数，或 过/二次过/未过/请假/免`)
+    const allowed = modeMarks[check.mode as CheckMode] ?? modeMarks.score
+    const hint = `${check.mode === "score" ? "分数，或 " : ""}${allowed.map((m) => marks[m]).join("/")}`
+    if (bad.length) throw new OpError(400, `看不懂这些结果：${bad.join("、")}。「${check.title}」可以填${hint}`)
 
     const existing = await db.select().from(checkResults).where(eq(checkResults.checkId, check.id))
     const now = new Date().toISOString()
@@ -299,8 +313,11 @@ export const recordResults = defineOp({
         if (old) removed.push(old.id)
         continue
       }
-      if (check.mode === "mark" && parsed.score != null) {
-        throw new OpError(400, `「${check.title}」是快速标记模式，${student.name} 请填 过/二次过/未过/请假/免`)
+      if ((check.mode !== "score" && parsed.score != null) || (parsed.mark && !allowed.includes(parsed.mark))) {
+        throw new OpError(
+          400,
+          `「${check.title}」是${checkModes[check.mode as CheckMode] ?? check.mode}，${student.name} 请填${hint}`,
+        )
       }
       written++
       if (old) {
