@@ -1,0 +1,4 @@
+# 允许这些依赖在安装时执行构建脚本（better-sqlite3 需要下载对应平台的数据库驱动）
+allowBuilds:
+  better-sqlite3: true
+  esbuild: true
