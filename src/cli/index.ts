@@ -112,7 +112,7 @@ program
       const byStudent = new Map<string, string[]>()
       for (const p of c.pending) {
         const list = byStudent.get(p.student.name) ?? []
-        list.push(`${p.check.title}${p.score != null ? ` ${p.score}` : ""}`)
+        list.push(`${p.check.title}${p.score != null ? `（${p.score}）` : ""}`)
         byStudent.set(p.student.name, list)
       }
       for (const [name, items] of byStudent) console.log(`  ${name}：${items.join("；")}`)

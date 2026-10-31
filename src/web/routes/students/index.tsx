@@ -1,0 +1,83 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
+import { ClassTabs, Delta, Empty, PageHeader, QueryState } from "@/web/components/common"
+import { Badge } from "@/web/components/ui/badge"
+import { Input } from "@/web/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
+import { useCurrentClass } from "@/web/lib/class"
+import { useOp } from "@/web/lib/ops"
+
+export const Route = createFileRoute("/students/")({ component: StudentsPage })
+
+function StudentsPage() {
+  const { current } = useCurrentClass()
+  const [q, setQ] = useState("")
+  const [groupId, setGroupId] = useState<number | undefined>()
+  const navigate = useNavigate()
+  const list = useOp("students.list", { class: current?.code, q: q || undefined, groupId }, { enabled: !!current })
+  const groups = useOp("groups.list", { class: current?.code ?? "" }, { enabled: !!current })
+
+  return (
+    <div>
+      <PageHeader title="学生档案" subtitle="点学生查看待过关、默写记录、积分明细。" />
+      <ClassTabs />
+      <div className="no-print mb-3 flex flex-wrap items-center gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="h-8 w-40" />
+        <select
+          className="h-8 rounded-md border bg-card px-2 text-sm"
+          value={groupId ?? ""}
+          onChange={(e) => setGroupId(e.target.value ? Number(e.target.value) : undefined)}
+        >
+          <option value="">全部小组</option>
+          {(groups.data ?? []).map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}组
+            </option>
+          ))}
+        </select>
+      </div>
+      <QueryState query={list}>
+        {(rows) =>
+          rows.length === 0 ? (
+            <Empty>没有找到学生</Empty>
+          ) : (
+            <div className="rounded-lg border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>学号</TableHead>
+                    <TableHead>姓名</TableHead>
+                    <TableHead>性别</TableHead>
+                    <TableHead>小组</TableHead>
+                    <TableHead className="text-right">待过关</TableHead>
+                    <TableHead className="text-right">积分</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((s) => (
+                    <TableRow
+                      key={s.id}
+                      className="cursor-pointer"
+                      onClick={() => navigate({ to: "/students/$id", params: { id: String(s.id) } })}
+                    >
+                      <TableCell className="text-muted-foreground tabular-nums">{s.studentNo}</TableCell>
+                      <TableCell className="font-medium">{s.name}</TableCell>
+                      <TableCell>{s.gender}</TableCell>
+                      <TableCell>{s.groupName ?? ""}</TableCell>
+                      <TableCell className="text-right">
+                        {s.pendingCount > 0 && <Badge variant="destructive">{s.pendingCount}</Badge>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Delta n={s.points} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )
+        }
+      </QueryState>
+    </div>
+  )
+}

@@ -10,33 +10,141 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PendingRouteImport } from './routes/pending'
+import { Route as PointsRouteImport } from './routes/points'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ChecksIndexRouteImport } from './routes/checks/index'
+import { Route as ChecksIdRouteImport } from './routes/checks/$id'
+import { Route as StudentsIndexRouteImport } from './routes/students/index'
+import { Route as StudentsIdRouteImport } from './routes/students/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PendingRoute = PendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PointsRoute = PointsRouteImport.update({
+  id: '/points',
+  path: '/points',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChecksIndexRoute = ChecksIndexRouteImport.update({
+  id: '/checks/',
+  path: '/checks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChecksIdRoute = ChecksIdRouteImport.update({
+  id: '/checks/$id',
+  path: '/checks/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentsIndexRoute = StudentsIndexRouteImport.update({
+  id: '/students/',
+  path: '/students/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudentsIdRoute = StudentsIdRouteImport.update({
+  id: '/students/$id',
+  path: '/students/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
+  '/points': typeof PointsRoute
+  '/settings': typeof SettingsRoute
+  '/checks/$id': typeof ChecksIdRoute
+  '/students/$id': typeof StudentsIdRoute
+  '/checks/': typeof ChecksIndexRoute
+  '/students/': typeof StudentsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
+  '/points': typeof PointsRoute
+  '/settings': typeof SettingsRoute
+  '/checks/$id': typeof ChecksIdRoute
+  '/students/$id': typeof StudentsIdRoute
+  '/checks': typeof ChecksIndexRoute
+  '/students': typeof StudentsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
+  '/points': typeof PointsRoute
+  '/settings': typeof SettingsRoute
+  '/checks/$id': typeof ChecksIdRoute
+  '/students/$id': typeof StudentsIdRoute
+  '/checks/': typeof ChecksIndexRoute
+  '/students/': typeof StudentsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/pending'
+    | '/points'
+    | '/settings'
+    | '/checks/$id'
+    | '/students/$id'
+    | '/checks/'
+    | '/students/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/pending'
+    | '/points'
+    | '/settings'
+    | '/checks/$id'
+    | '/students/$id'
+    | '/checks'
+    | '/students'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/pending'
+    | '/points'
+    | '/settings'
+    | '/checks/$id'
+    | '/students/$id'
+    | '/checks/'
+    | '/students/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  PendingRoute: typeof PendingRoute
+  PointsRoute: typeof PointsRoute
+  SettingsRoute: typeof SettingsRoute
+  ChecksIdRoute: typeof ChecksIdRoute
+  StudentsIdRoute: typeof StudentsIdRoute
+  ChecksIndexRoute: typeof ChecksIndexRoute
+  StudentsIndexRoute: typeof StudentsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +156,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pending': {
+      id: '/pending'
+      path: '/pending'
+      fullPath: '/pending'
+      preLoaderRoute: typeof PendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/points': {
+      id: '/points'
+      path: '/points'
+      fullPath: '/points'
+      preLoaderRoute: typeof PointsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checks/': {
+      id: '/checks/'
+      path: '/checks'
+      fullPath: '/checks/'
+      preLoaderRoute: typeof ChecksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checks/$id': {
+      id: '/checks/$id'
+      path: '/checks/$id'
+      fullPath: '/checks/$id'
+      preLoaderRoute: typeof ChecksIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/students/': {
+      id: '/students/'
+      path: '/students'
+      fullPath: '/students/'
+      preLoaderRoute: typeof StudentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/students/$id': {
+      id: '/students/$id'
+      path: '/students/$id'
+      fullPath: '/students/$id'
+      preLoaderRoute: typeof StudentsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  PendingRoute: PendingRoute,
+  PointsRoute: PointsRoute,
+  SettingsRoute: SettingsRoute,
+  ChecksIdRoute: ChecksIdRoute,
+  StudentsIdRoute: StudentsIdRoute,
+  ChecksIndexRoute: ChecksIndexRoute,
+  StudentsIndexRoute: StudentsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
