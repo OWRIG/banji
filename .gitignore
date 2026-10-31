@@ -5,3 +5,5 @@ data
 *.log
 .DS_Store
 .tanstack
+deploy/.env
+deploy/data

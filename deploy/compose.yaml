@@ -1,0 +1,35 @@
+# 云端部署：app（班级工作台）+ caddy（自动申请 HTTPS 证书）
+# 用法见 DEPLOY.md。在 deploy/ 目录下运行 docker compose up -d --build
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      BETTER_AUTH_URL: https://${DOMAIN:?请在 .env 里设置 DOMAIN}
+    volumes:
+      # 数据库和每日备份都在 deploy/data 里，升级镜像不会丢
+      - ./data:/app/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

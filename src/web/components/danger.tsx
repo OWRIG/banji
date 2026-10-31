@@ -17,7 +17,7 @@ import { callOp, useUndo } from "@/web/lib/ops"
 
 export function useDangerOp<N extends OpName>(
   name: N,
-  opts: { title: string; describe: (preview: OpData<N>) => ReactNode; onDone?: () => void },
+  opts: { title: string; describe: (preview: OpData<N>) => ReactNode; onDone?: () => void | Promise<void> },
 ) {
   const queryClient = useQueryClient()
   const undo = useUndo()
@@ -40,10 +40,11 @@ export function useDangerOp<N extends OpName>(
     try {
       const out = await callOp(name, { ...state.input, confirm: state.confirm })
       setState(null)
+      // 先离开页面（例如删除后回到列表），再刷新数据，避免刷新已经删除的记录
+      await opts.onDone?.()
       await queryClient.invalidateQueries({ queryKey: ["op"] })
       const id = out.changesetId
       toast.success(out.summary, id ? { action: { label: "撤销", onClick: () => undo(id) } } : undefined)
-      opts.onDone?.()
     } catch (err) {
       toast.error((err as Error).message)
     } finally {

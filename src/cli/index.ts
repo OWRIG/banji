@@ -276,6 +276,23 @@ token
       )
   })
 
+const service = program.command("service").description("本地部署：开机自动启动网页服务（macOS）")
+service
+  .command("install")
+  .description("配置开机自动启动。第一次运行会生成 .env（登录密钥、备份目录），并打包网页")
+  .option("--lan", "允许同一局域网里的手机访问（监听 0.0.0.0）")
+  .action(async (opts: { lan?: boolean }) => {
+    const { installService } = await import("./service")
+    await installService({ lan: !!opts.lan }).catch(fail)
+  })
+service
+  .command("uninstall")
+  .description("取消开机自动启动（数据不受影响）")
+  .action(async () => {
+    const { uninstallService } = await import("./service")
+    await uninstallService().catch(fail)
+  })
+
 program
   .command("mcp")
   .description("以 stdio 方式启动 MCP 服务，供本机的 agent（Claude、Codex 等）连接")
