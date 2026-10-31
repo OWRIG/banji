@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { cn } from "cn"
 import { type ClipboardEvent, type KeyboardEvent, useRef, useState } from "react"
 import { toast } from "sonner"
-import { type CheckKind, checkKinds, type Mark, marks, parseResultValue } from "@/modules/checks/shared"
+import { type CheckKind, checkKinds, type Mark, marks, parseResultValue, resultText } from "@/modules/checks/shared"
 import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
 import { PageHeader, QueryState, Stat } from "@/web/components/common"
@@ -24,12 +24,7 @@ function CheckPage() {
   return <QueryState query={detail}>{(d) => <CheckEditor key={d.check.id} detail={d} />}</QueryState>
 }
 
-/** 显示一条结果：分数，或者"请假/过"等标记 */
-function display(r: Row["result"] | Row["previous"]) {
-  if (!r) return ""
-  if (r.mark) return marks[r.mark as Mark] ?? r.mark
-  return fmt(r.score)
-}
+const display = resultText
 
 function CheckEditor({ detail }: { detail: Detail }) {
   const { check, rows, stats } = detail

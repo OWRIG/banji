@@ -1,6 +1,7 @@
 import { and, asc, eq } from "drizzle-orm"
 import { z } from "zod"
 import { checksModule } from "@/modules/checks"
+import { examsModule } from "@/modules/exams"
 import { notesModule } from "@/modules/notes"
 import { pointsModule } from "@/modules/points"
 import { rosterModule } from "@/modules/roster"
@@ -16,7 +17,7 @@ import { today } from "@/shared/format"
 // 模块登记表。新增一个模块：在 src/modules/<id>/ 里写好，然后加到下面的 modules 里——
 // 它的操作会出现在网页接口、命令行、MCP 里；它的表可以撤销；它的积分来源、首页和档案内容会自动汇总。
 
-export const modules = [rosterModule, pointsModule, systemModule, checksModule, notesModule] as const
+export const modules = [rosterModule, pointsModule, systemModule, checksModule, examsModule, notesModule] as const
 
 type Mods = (typeof modules)[number]
 export type ModuleId = Mods["id"]

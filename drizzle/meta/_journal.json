@@ -15,6 +15,13 @@
       "when": 1793462804002,
       "tag": "0001_blushing_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793464556150,
+      "tag": "0002_lazy_black_knight",
+      "breakpoints": true
     }
   ]
 }

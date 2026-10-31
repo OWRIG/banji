@@ -220,3 +220,29 @@ describe("操作记录", () => {
     expect(h.data.some((x) => x.summary.includes("登记"))).toBe(true)
   })
 })
+
+describe("检查总表", () => {
+  it("学生 × 场次，补过的带标记", async () => {
+    const c = await runOp(ops["checks.create"], { class: "705", title: "总表测试", date: "2099-01-01" }, as)
+    await runOp(
+      ops["checks.record"],
+      {
+        check: c.data.id,
+        results: [
+          { student: "李明", value: 60 },
+          { student: "王芳", value: "请假" },
+        ],
+      },
+      as,
+    )
+    await runOp(ops["pending.clear"], { items: [{ student: "李明", check: c.data.id }] }, as)
+    const sheet = (await runOp(ops["checks.sheet"], { class: "705" }, as)).data
+    const col = sheet.checks.findIndex((x) => x.id === c.data.id)
+    expect(col).toBe(sheet.checks.length - 1)
+    const value = (name: string) => sheet.rows.find((r) => r.student.name === name)?.values[col]
+    expect(value("李明")).toBe("60(补)")
+    expect(value("王芳")).toBe("请假")
+    expect(value("张三")).toBe("")
+    await expect(runOp(ops["checks.sheet"], { class: "999" }, as)).rejects.toThrow()
+  })
+})

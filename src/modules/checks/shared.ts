@@ -20,6 +20,13 @@ export const marks = {
 } as const
 export type Mark = keyof typeof marks
 
+/** 显示一条结果：分数，或者"请假/过"等标记 */
+export function resultText(r: { score: number | null; mark: string | null } | null | undefined) {
+  if (!r) return ""
+  if (r.mark) return marks[r.mark as Mark] ?? r.mark
+  return r.score == null ? "" : String(Math.round(r.score * 10) / 10)
+}
+
 /** 一条结果的状态：达标 / 未达标 / 请假（不计入分母）/ 还没登记 */
 export type ResultStatus = "passed" | "failed" | "leave" | "empty"
 

@@ -2,6 +2,7 @@ import { eq, inArray } from "drizzle-orm"
 import { defineModule } from "@/server/core/module"
 import { db } from "@/server/db"
 import {
+  checkSheet,
   clearPending,
   createCheck,
   deleteCheck,
@@ -26,6 +27,7 @@ export const checksModule = defineModule({
   ops: [
     listChecks,
     getCheck,
+    checkSheet,
     createCheck,
     updateCheck,
     recordResults,

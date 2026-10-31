@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { type FormEvent, useState } from "react"
+import { toast } from "sonner"
 import { z } from "zod"
 import { type CheckKind, checkKinds } from "@/modules/checks/shared"
 import { pct, today } from "@/shared/format"
@@ -10,7 +11,8 @@ import { Input } from "@/web/components/ui/input"
 import { Label } from "@/web/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
 import { useCurrentClass } from "@/web/lib/class"
-import { useOp, useOpMutation } from "@/web/lib/ops"
+import { downloadCsv } from "@/web/lib/csv"
+import { callOp, useOp, useOpMutation } from "@/web/lib/ops"
 
 export const Route = createFileRoute("/checks/")({
   component: ChecksPage,
@@ -29,7 +31,16 @@ function ChecksPage() {
       <PageHeader
         title="默写过关"
         subtitle="默写、背书、作业订正都在这里登记。未达标的学生会自动进入待过关名单。"
-        actions={<Button onClick={() => setCreating(true)}>新建</Button>}
+        actions={
+          <>
+            {current && (
+              <Button variant="outline" onClick={() => void exportSheet(current.code)}>
+                导出总表
+              </Button>
+            )}
+            <Button onClick={() => setCreating(true)}>新建</Button>
+          </>
+        }
       />
       <ClassTabs />
       <QueryState query={list}>
@@ -87,6 +98,19 @@ function ChecksPage() {
       )}
     </div>
   )
+}
+
+/** 默写总表：学生 × 场次，Excel 可以直接打开 */
+async function exportSheet(classCode: string) {
+  try {
+    const { data } = await callOp("checks.sheet", { class: classCode })
+    downloadCsv(`${data.className}-检查总表`, [
+      ["学号", "姓名", ...data.checks.map((c) => (c.date ? `${c.title}（${c.date.slice(5)}）` : c.title))],
+      ...data.rows.map((r) => [r.student.studentNo, r.student.name, ...r.values]),
+    ])
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : "导出失败")
+  }
 }
 
 function NewCheckDialog(props: {

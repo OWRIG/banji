@@ -8,7 +8,16 @@ import { db } from "@/server/db"
 import { classes, students } from "@/server/db/schema"
 import { today } from "@/shared/format"
 import { checkResults, checks } from "./schema"
-import { type CheckKind, checkKinds, checkModes, checkStats, marks, parseResultValue, resultStatus } from "./shared"
+import {
+  type CheckKind,
+  checkKinds,
+  checkModes,
+  checkStats,
+  marks,
+  parseResultValue,
+  resultStatus,
+  resultText,
+} from "./shared"
 
 // 检查项（默写、背书、作业订正…）与待过关池
 
@@ -152,6 +161,50 @@ export const listChecks = defineOp({
       const pending = rs.filter((r) => resultStatus(c, r) === "failed" && !r.clearedAt).length
       return { ...c, classCode, className, stats, pending }
     })
+  },
+})
+
+export const checkSheet = defineOp({
+  name: "checks.sheet",
+  title: "检查总表",
+  description:
+    "一个班的检查总表：每行一个学生，每列一场检查（按时间先后），格子里是分数或 过/未过/请假/免，" +
+    "补过的未达标成绩后面带「(补)」。用来导出 Excel 或整体查看。",
+  kind: "read",
+  input: z.object({ class: classRef, kind: kindEnum.optional() }),
+  run: async (_ctx, input) => {
+    const cls = await resolveClass(input.class)
+    const list = await db
+      .select()
+      .from(checks)
+      .where(and(eq(checks.classId, cls.id), input.kind ? eq(checks.kind, input.kind) : undefined))
+      .orderBy(asc(checks.date), asc(checks.id))
+    const roster = await activeStudents(cls.id)
+    const results = list.length
+      ? await db
+          .select()
+          .from(checkResults)
+          .where(
+            inArray(
+              checkResults.checkId,
+              list.map((c) => c.id),
+            ),
+          )
+      : []
+    const byKey = new Map(results.map((r) => [`${r.checkId}:${r.studentId}`, r]))
+    return {
+      className: cls.name,
+      checks: list.map((c) => ({ id: c.id, title: c.title, date: c.date, kind: c.kind })),
+      rows: roster.map((s) => ({
+        student: { id: s.id, name: s.name, studentNo: s.studentNo },
+        values: list.map((c) => {
+          const r = byKey.get(`${c.id}:${s.id}`)
+          if (!r) return ""
+          const text = resultText(r)
+          return resultStatus(c, r) === "failed" && r.clearedAt ? `${text}(补)` : text
+        }),
+      })),
+    }
   },
 })
 

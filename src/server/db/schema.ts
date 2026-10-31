@@ -230,4 +230,5 @@ export const accountRelations = relations(account, ({ one }) => ({
 
 // ---- 功能模块的数据表 ----
 export * from "@/modules/checks/schema"
+export * from "@/modules/exams/schema"
 export * from "@/modules/notes/schema"

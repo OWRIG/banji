@@ -16,6 +16,8 @@ import { Route as PointsRouteImport } from './routes/points'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ChecksIndexRouteImport } from './routes/checks/index'
 import { Route as ChecksIdRouteImport } from './routes/checks/$id'
+import { Route as ExamsIndexRouteImport } from './routes/exams/index'
+import { Route as ExamsIdRouteImport } from './routes/exams/$id'
 import { Route as StudentsIndexRouteImport } from './routes/students/index'
 import { Route as StudentsIdRouteImport } from './routes/students/$id'
 
@@ -54,6 +56,16 @@ const ChecksIdRoute = ChecksIdRouteImport.update({
   path: '/checks/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExamsIndexRoute = ExamsIndexRouteImport.update({
+  id: '/exams/',
+  path: '/exams/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ExamsIdRoute = ExamsIdRouteImport.update({
+  id: '/exams/$id',
+  path: '/exams/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudentsIndexRoute = StudentsIndexRouteImport.update({
   id: '/students/',
   path: '/students/',
@@ -72,8 +84,10 @@ export interface FileRoutesByFullPath {
   '/points': typeof PointsRoute
   '/settings': typeof SettingsRoute
   '/checks/$id': typeof ChecksIdRoute
+  '/exams/$id': typeof ExamsIdRoute
   '/students/$id': typeof StudentsIdRoute
   '/checks/': typeof ChecksIndexRoute
+  '/exams/': typeof ExamsIndexRoute
   '/students/': typeof StudentsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -83,8 +97,10 @@ export interface FileRoutesByTo {
   '/points': typeof PointsRoute
   '/settings': typeof SettingsRoute
   '/checks/$id': typeof ChecksIdRoute
+  '/exams/$id': typeof ExamsIdRoute
   '/students/$id': typeof StudentsIdRoute
   '/checks': typeof ChecksIndexRoute
+  '/exams': typeof ExamsIndexRoute
   '/students': typeof StudentsIndexRoute
 }
 export interface FileRoutesById {
@@ -95,8 +111,10 @@ export interface FileRoutesById {
   '/points': typeof PointsRoute
   '/settings': typeof SettingsRoute
   '/checks/$id': typeof ChecksIdRoute
+  '/exams/$id': typeof ExamsIdRoute
   '/students/$id': typeof StudentsIdRoute
   '/checks/': typeof ChecksIndexRoute
+  '/exams/': typeof ExamsIndexRoute
   '/students/': typeof StudentsIndexRoute
 }
 export interface FileRouteTypes {
@@ -108,8 +126,10 @@ export interface FileRouteTypes {
     | '/points'
     | '/settings'
     | '/checks/$id'
+    | '/exams/$id'
     | '/students/$id'
     | '/checks/'
+    | '/exams/'
     | '/students/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -119,8 +139,10 @@ export interface FileRouteTypes {
     | '/points'
     | '/settings'
     | '/checks/$id'
+    | '/exams/$id'
     | '/students/$id'
     | '/checks'
+    | '/exams'
     | '/students'
   id:
     | '__root__'
@@ -130,8 +152,10 @@ export interface FileRouteTypes {
     | '/points'
     | '/settings'
     | '/checks/$id'
+    | '/exams/$id'
     | '/students/$id'
     | '/checks/'
+    | '/exams/'
     | '/students/'
   fileRoutesById: FileRoutesById
 }
@@ -142,8 +166,10 @@ export interface RootRouteChildren {
   PointsRoute: typeof PointsRoute
   SettingsRoute: typeof SettingsRoute
   ChecksIdRoute: typeof ChecksIdRoute
+  ExamsIdRoute: typeof ExamsIdRoute
   StudentsIdRoute: typeof StudentsIdRoute
   ChecksIndexRoute: typeof ChecksIndexRoute
+  ExamsIndexRoute: typeof ExamsIndexRoute
   StudentsIndexRoute: typeof StudentsIndexRoute
 }
 
@@ -198,6 +224,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChecksIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/exams/': {
+      id: '/exams/'
+      path: '/exams'
+      fullPath: '/exams/'
+      preLoaderRoute: typeof ExamsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/exams/$id': {
+      id: '/exams/$id'
+      path: '/exams/$id'
+      fullPath: '/exams/$id'
+      preLoaderRoute: typeof ExamsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/students/': {
       id: '/students/'
       path: '/students'
@@ -222,8 +262,10 @@ const rootRouteChildren: RootRouteChildren = {
   PointsRoute: PointsRoute,
   SettingsRoute: SettingsRoute,
   ChecksIdRoute: ChecksIdRoute,
+  ExamsIdRoute: ExamsIdRoute,
   StudentsIdRoute: StudentsIdRoute,
   ChecksIndexRoute: ChecksIndexRoute,
+  ExamsIndexRoute: ExamsIndexRoute,
   StudentsIndexRoute: StudentsIndexRoute,
 }
 export const routeTree = rootRouteImport
