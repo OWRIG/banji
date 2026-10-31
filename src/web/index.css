@@ -8,7 +8,7 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-  --color-gold: var(--gold);
+  --color-brand: var(--brand);
   --color-success: var(--success);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -51,41 +51,41 @@
 }
 
 :root {
-  /* 暖色纸感：侧栏 #2e2922、背景 #f6f2ea、强调金 #c99a3f */
-  --background: #f6f2ea;
-  --foreground: #2e2922;
-  --card: #fffdf8;
-  --card-foreground: #2e2922;
-  --popover: #fffdf8;
-  --popover-foreground: #2e2922;
-  --primary: #2e2922;
-  --primary-foreground: #f6f2ea;
-  --secondary: #ece4d4;
-  --secondary-foreground: #2e2922;
-  --muted: #ece4d4;
-  --muted-foreground: #7a6f60;
-  --accent: #f1e3c2;
-  --accent-foreground: #2e2922;
-  --destructive: #b4442f;
-  --border: #e2d8c5;
-  --input: #d9cdb6;
-  --ring: #c99a3f;
-  --chart-1: #c99a3f;
-  --chart-2: #6b8f5a;
-  --chart-3: #b4442f;
-  --chart-4: #5a7391;
-  --chart-5: #8a7a64;
-  --radius: 0.5rem;
-  --sidebar: #2e2922;
-  --sidebar-foreground: #e9dfcc;
-  --sidebar-primary: #c99a3f;
-  --sidebar-primary-foreground: #2e2922;
-  --sidebar-accent: #3d362d;
-  --sidebar-accent-foreground: #f6f2ea;
-  --sidebar-border: #3d362d;
-  --sidebar-ring: #c99a3f;
-  --gold: #c99a3f;
-  --success: #4f7a3a;
+  /* 干净简洁（参考 zed.dev）：近白底、细线边框、小圆角、蓝色强调、灰蓝正文，不用阴影 */
+  --background: #fafaf9;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: #1f2328;
+  --popover: #ffffff;
+  --popover-foreground: #1f2328;
+  --primary: #1348dc;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f0;
+  --secondary-foreground: #1f2328;
+  --muted: #f2f2f0;
+  --muted-foreground: #5f6673;
+  --accent: #edf2fe;
+  --accent-foreground: #1348dc;
+  --destructive: #c8312b;
+  --border: #e5e5e2;
+  --input: #dadad6;
+  --ring: #1348dc;
+  --chart-1: #1348dc;
+  --chart-2: #1a7f37;
+  --chart-3: #c8312b;
+  --chart-4: #727a89;
+  --chart-5: #b8bcc4;
+  --radius: 0.375rem;
+  --sidebar: #fafaf9;
+  --sidebar-foreground: #5f6673;
+  --sidebar-primary: #1f2328;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #1f2328;
+  --sidebar-border: #e5e5e2;
+  --sidebar-ring: #1348dc;
+  --brand: #1348dc;
+  --success: #1a7f37;
 }
 
 .dark {
@@ -127,7 +127,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;

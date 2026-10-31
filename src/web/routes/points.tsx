@@ -106,7 +106,7 @@ function PointsPage() {
                     onClick={() => toggle([s.id])}
                     className={cn(
                       "rounded-md border px-2 py-1.5 text-left text-sm transition-colors",
-                      selected.has(s.id) ? "border-gold bg-accent font-medium" : "bg-background hover:bg-muted",
+                      selected.has(s.id) ? "border-brand bg-accent font-medium" : "bg-background hover:bg-muted",
                     )}
                   >
                     <div className="truncate">{s.name}</div>
@@ -129,8 +129,8 @@ function PointsPage() {
                 type="button"
                 onClick={() => setAmount(n)}
                 className={cn(
-                  "rounded px-2.5 py-0.5 tabular-nums",
-                  amount === n && "bg-primary text-primary-foreground",
+                  "rounded px-2.5 py-0.5 text-muted-foreground tabular-nums",
+                  amount === n && "bg-muted font-medium text-foreground",
                 )}
               >
                 -{n}
@@ -172,7 +172,10 @@ function PointsPage() {
                   key={p}
                   type="button"
                   onClick={() => setPeriod(p)}
-                  className={cn("rounded px-2 py-1", period === p && "bg-primary text-primary-foreground")}
+                  className={cn(
+                    "rounded px-2 py-1 text-muted-foreground",
+                    period === p && "bg-muted font-medium text-foreground",
+                  )}
                 >
                   {periods[p]}
                 </button>

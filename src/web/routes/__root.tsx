@@ -12,12 +12,12 @@ export const Route = createRootRoute({
 
 // 导航：今日 → 各功能模块的入口（在模块的 web.tsx 里声明，停用的模块不显示）→ 核心页面
 const coreNav = [
-  { to: "/points", label: "加分积分" },
+  { to: "/points", label: "积分" },
   { to: "/students", label: "学生档案" },
   { to: "/settings", label: "数据与设置" },
 ] as const
 
-// 整个应用的外框：没登录时只显示登录页；登录后电脑上是左侧深色导航，手机上是顶部横向导航。
+// 整个应用的外框：没登录时只显示登录页；登录后电脑上是左侧导航，手机上是顶部横向导航。
 function RootLayout() {
   const { data: session, isPending } = authClient.useSession()
   const pathname = useLocation({ select: (location) => location.pathname })
@@ -49,35 +49,43 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="no-print bg-sidebar text-sidebar-foreground md:fixed md:inset-y-0 md:flex md:w-48 md:flex-col">
-        <div className="flex items-center gap-2 px-4 py-3 md:py-5">
-          <span className="font-semibold tracking-wide text-sidebar-primary">班级工作台</span>
-          <button type="button" onClick={signOut} className="ml-auto text-xs opacity-60 hover:opacity-100 md:hidden">
+      <aside className="no-print border-b bg-sidebar md:fixed md:inset-y-0 md:flex md:w-52 md:flex-col md:border-r md:border-b-0">
+        <div className="flex h-14 items-center gap-2 px-4 md:px-5">
+          <span className="size-2 rotate-45 bg-brand" aria-hidden />
+          <span className="text-sm font-semibold tracking-tight text-foreground">班级工作台</span>
+          <button
+            type="button"
+            onClick={signOut}
+            className="ml-auto text-xs text-muted-foreground hover:text-foreground md:hidden"
+          >
             退出
           </button>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 text-sm md:flex-col md:overflow-visible md:pb-0">
+        <nav className="flex gap-0.5 overflow-x-auto px-2 pb-2 text-sm md:flex-col md:overflow-visible md:px-3 md:pt-2 md:pb-0">
           {nav.map((item) => (
             <Link
               key={String(item.to)}
               to={item.to}
               activeOptions={{ exact: item.to === "/" }}
-              className="whitespace-nowrap rounded-md px-3 py-2 opacity-75 hover:bg-sidebar-accent hover:opacity-100 [&.active]:bg-sidebar-accent [&.active]:text-sidebar-primary [&.active]:opacity-100"
+              className="whitespace-nowrap rounded-md border border-transparent px-2.5 py-1.5 text-muted-foreground transition-colors hover:text-foreground [&.active]:border-border [&.active]:bg-card [&.active]:font-medium [&.active]:text-foreground"
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="mt-auto hidden px-4 py-4 text-xs opacity-70 md:block">
-          <div className="truncate">{session.user.name}</div>
-          <button type="button" onClick={signOut} className="mt-1 underline-offset-2 hover:underline">
+        <div className="mt-auto hidden border-t px-5 py-4 text-xs text-muted-foreground md:block">
+          <div className="truncate text-foreground">{session.user.name}</div>
+          <button type="button" onClick={signOut} className="mt-1 hover:text-foreground">
             退出登录
           </button>
         </div>
       </aside>
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 md:ml-48 md:px-8 md:py-8 print:m-0 print:max-w-none print:p-0">
-        <Outlet />
-      </main>
+      <div className="w-full md:ml-52">
+        {/* 内容区两侧的竖向参考线 */}
+        <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-6 md:border-x md:px-10 md:py-10 print:m-0 print:max-w-none print:border-0 print:p-0">
+          <Outlet />
+        </main>
+      </div>
       <Toaster position="top-center" />
     </div>
   )

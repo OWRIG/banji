@@ -24,7 +24,7 @@ function TodayPage() {
                 <>
                   {webModules.map((m) => m.HomeActions && <m.HomeActions key={m.id} />)}
                   <Button asChild variant="outline">
-                    <Link to="/points">记加分</Link>
+                    <Link to="/points">扣分</Link>
                   </Button>
                 </>
               }
@@ -51,7 +51,7 @@ function TodayPage() {
                 ? `最近一次 ${new Date(lastBackup.createdAt).toLocaleString("zh-CN", { hour12: false })}`
                 : "还没有备份"}
               <span className="text-muted-foreground">（服务开着时每天自动备份一次）</span>
-              <Link to="/settings" className="no-print ml-2 text-gold hover:underline">
+              <Link to="/settings" className="no-print ml-2 text-brand hover:underline">
                 管理备份 →
               </Link>
             </section>

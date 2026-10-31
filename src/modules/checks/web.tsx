@@ -50,7 +50,7 @@ export const checksWeb: WebModule = {
                   <Link
                     to="/pending"
                     search={{ class: c.code }}
-                    className="no-print ml-auto text-sm text-gold hover:underline"
+                    className="no-print ml-auto text-sm text-brand hover:underline"
                   >
                     去处理 →
                   </Link>
@@ -111,7 +111,7 @@ export const checksWeb: WebModule = {
     return (
       <>
         <p className="text-sm text-muted-foreground">
-          检查达标率 <span className="font-medium text-gold">{pct(data.passRate)}</span> · 待过关{" "}
+          检查达标率 <span className="font-medium text-brand">{pct(data.passRate)}</span> · 待过关{" "}
           <span className={cn("font-medium", data.pending.length > 0 && "text-destructive")}>
             {data.pending.length}
           </span>
@@ -160,7 +160,7 @@ export const checksWeb: WebModule = {
                     "rounded-md border px-2 py-1 text-xs",
                     h.status === "passed" && "border-success/40 bg-success/10",
                     h.status === "failed" && !h.clearedAt && "border-destructive/40 bg-destructive/10",
-                    h.status === "failed" && h.clearedAt && "border-gold/40 bg-accent",
+                    h.status === "failed" && h.clearedAt && "border-brand/40 bg-accent",
                   )}
                 >
                   <div className="font-medium">{h.title}</div>

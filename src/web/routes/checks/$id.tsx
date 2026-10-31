@@ -144,7 +144,7 @@ function CheckEditor({ detail }: { detail: Detail }) {
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="已录" value={`${stats.entered}/${rows.length}`} />
-        <Stat label="达标率" value={pct(stats.passRate)} tone="gold" />
+        <Stat label="达标率" value={pct(stats.passRate)} tone="brand" />
         <Stat label="未达标" value={stats.failed} tone={stats.failed ? "bad" : undefined} />
         <Stat label="请假" value={stats.leave} />
         {!isMark && <Stat label="满分" value={stats.full} tone="good" />}

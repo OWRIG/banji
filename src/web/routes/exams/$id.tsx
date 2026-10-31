@@ -46,7 +46,10 @@ function ExamPage() {
                 to="/exams/$id"
                 params={{ id }}
                 search={{ tab: t }}
-                className={cn("rounded-md px-3 py-1", tab === t && "bg-primary text-primary-foreground")}
+                className={cn(
+                  "rounded px-3 py-1 text-muted-foreground",
+                  tab === t && "bg-muted font-medium text-foreground",
+                )}
               >
                 {t === "scores" ? "成绩录入" : "考后分析"}
               </Link>

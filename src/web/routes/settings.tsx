@@ -321,7 +321,7 @@ function TokenSection() {
         </Button>
       </form>
       {created && (
-        <div className="mt-3 rounded-md border border-gold bg-accent px-3 py-2 text-sm">
+        <div className="mt-3 rounded-md border border-brand bg-accent px-3 py-2 text-sm">
           <div className="mb-1 font-medium">令牌只显示这一次，请马上复制保存：</div>
           <code className="break-all text-xs">{created}</code>
         </div>

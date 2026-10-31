@@ -169,10 +169,10 @@ function TrendChart({
       <figcaption className="mb-1 text-xs text-muted-foreground">{title}</figcaption>
       <svg viewBox={`0 0 ${w} ${h}`} className="h-auto w-full" role="img" aria-label={title}>
         <line x1={pad.l} x2={w - pad.r} y1={h - pad.b} y2={h - pad.b} className="stroke-border" strokeWidth={1} />
-        <path d={path} fill="none" className="stroke-gold" strokeWidth={2} strokeLinejoin="round" />
+        <path d={path} fill="none" className="stroke-brand" strokeWidth={2} strokeLinejoin="round" />
         {points.map((p, i) => (
           <g key={p.id}>
-            <circle cx={x(i)} cy={y(p.value)} r={4} className="fill-gold stroke-card" strokeWidth={2} />
+            <circle cx={x(i)} cy={y(p.value)} r={4} className="fill-brand stroke-card" strokeWidth={2} />
             {/* 比点大的透明热区，方便鼠标和手指点到 */}
             <circle cx={x(i)} cy={y(p.value)} r={12} fill="transparent">
               <title>{`${p.label}：${p.text}`}</title>

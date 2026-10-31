@@ -37,7 +37,7 @@ function LoginPage() {
   return (
     <div className="mx-auto mt-24 max-w-sm space-y-6 px-4">
       <div>
-        <p className="text-sm font-medium text-gold">班级工作台</p>
+        <p className="text-sm font-medium text-brand">班级工作台</p>
         <h1 className="mt-1 text-2xl font-semibold">{signUp ? "创建账号" : "登录"}</h1>
         {signUp && (
           <p className="mt-2 text-sm text-muted-foreground">
