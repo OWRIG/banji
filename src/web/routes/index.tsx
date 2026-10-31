@@ -80,7 +80,9 @@ function TodayPage() {
                               {s.name}
                             </Link>
                             <span className="text-muted-foreground">
-                              {s.items.map((p) => `${p.check.title}${p.score != null ? `（${p.score}）` : ""}`).join("；")}
+                              {s.items
+                                .map((p) => `${p.check.title}${p.score != null ? `（${p.score}）` : ""}`)
+                                .join("；")}
                             </span>
                           </li>
                         ))}
