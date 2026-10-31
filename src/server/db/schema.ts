@@ -1,10 +1,10 @@
 import { relations, sql } from "drizzle-orm"
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { now } from "./columns"
 
-// 所有数据表都定义在这个文件里。改完后运行 pnpm db:generate 生成迁移文件。
+// 平台的核心数据表（名册、积分、系统、登录）。功能模块的表放在 src/modules/<id>/schema.ts，
+// 并在本文件末尾 export * 出来（drizzle 生成迁移、建立连接都只看这个文件）。改完后运行 pnpm db:generate。
 // 业务表的时间统一存 ISO 字符串（created_at）或 YYYY-MM-DD（业务日期），方便撤销时原样还原。
-
-const now = () => new Date().toISOString()
 
 // ---- 班级与名册 ----
 
@@ -47,50 +47,6 @@ export const students = sqliteTable(
     createdAt: text("created_at").notNull().$defaultFn(now),
   },
   (t) => [uniqueIndex("students_no_idx").on(t.studentNo), index("students_class_idx").on(t.classId)],
-)
-
-// ---- 检查项：默写、背书、作业订正……统一建模 ----
-
-export const checks = sqliteTable(
-  "checks",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    classId: integer("class_id")
-      .notNull()
-      .references(() => classes.id),
-    // dictation 默写 / recite 背书 / homework 作业订正 / other 其他
-    kind: text("kind").notNull().default("dictation"),
-    title: text("title").notNull(),
-    // 业务日期 YYYY-MM-DD，可以为空（历史数据没有日期）
-    date: text("date"),
-    // score 分数登记 / mark 快速标记
-    mode: text("mode").notNull().default("score"),
-    passLine: real("pass_line").notNull().default(80),
-    fullScore: real("full_score").notNull().default(100),
-    createdAt: text("created_at").notNull().$defaultFn(now),
-  },
-  (t) => [index("checks_class_idx").on(t.classId)],
-)
-
-export const checkResults = sqliteTable(
-  "check_results",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    checkId: integer("check_id")
-      .notNull()
-      .references(() => checks.id),
-    studentId: integer("student_id")
-      .notNull()
-      .references(() => students.id),
-    score: real("score"),
-    // pass 过 / pass_retry 二次过 / fail 未过 / leave 请假 / exempt 免
-    mark: text("mark"),
-    // 销账：未达标的学生补过之后记下日期
-    clearedAt: text("cleared_at"),
-    clearedNote: text("cleared_note").notNull().default(""),
-    updatedAt: text("updated_at").notNull().$defaultFn(now),
-  },
-  (t) => [uniqueIndex("check_results_unique_idx").on(t.checkId, t.studentId)],
 )
 
 // ---- 积分 ----
@@ -271,3 +227,6 @@ export const accountRelations = relations(account, ({ one }) => ({
     references: [user.id],
   }),
 }))
+
+// ---- 功能模块的数据表 ----
+export * from "@/modules/checks/schema"

@@ -1,10 +1,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { OpError, runOp } from "./ops/define"
-import { opList } from "./ops/index"
+import { OpError, runOp } from "./core/define"
+import { availableOps, disabledModules, modules } from "./registry"
 
 // 把业务操作注册成 MCP 工具。stdio（banji mcp）和 HTTP（/mcp）共用这一份。
 
-const instructions = `这是一位老师的「班级工作台」，记录班级名册、默写/背书等检查、待过关名单和学生积分。
+const baseInstructions = `这是一位老师的「班级工作台」，记录班级名册、默写/背书等检查、待过关名单和学生积分。
 
 使用约定：
 - 学生可以直接用姓名或学号指代；有重名或对不上时工具会报错并列出候选，请让老师确认，不要猜。
@@ -20,10 +20,14 @@ const kindHint = {
   danger: "【危险操作：先不带 confirm 调用拿到预览，老师确认后再带 confirm 调用】",
 } as const
 
-export function createMcpServer(actor: string) {
+export async function createMcpServer(actor: string) {
+  const off = await disabledModules()
+  const enabled = modules.filter((m) => m.core || !off.has(m.id))
+  const instructions = `${baseInstructions}\n\n已启用的功能：\n${enabled.map((m) => `- ${m.title}：${m.description}`).join("\n")}`
   const server = new McpServer({ name: "banji", version: "0.1.0" }, { instructions })
 
-  for (const op of opList) {
+  // 只注册已启用模块的操作
+  for (const op of await availableOps()) {
     if (op.hideFromMcp) continue
     server.registerTool(
       op.name.replaceAll(".", "_"),

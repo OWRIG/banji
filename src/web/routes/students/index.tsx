@@ -37,7 +37,7 @@ function StudentsPage() {
         </select>
       </div>
       <QueryState query={list}>
-        {(rows) =>
+        {({ rows, facts }) =>
           rows.length === 0 ? (
             <Empty>没有找到学生</Empty>
           ) : (
@@ -49,8 +49,11 @@ function StudentsPage() {
                     <TableHead>姓名</TableHead>
                     <TableHead>性别</TableHead>
                     <TableHead>小组</TableHead>
-                    <TableHead className="text-right">待过关</TableHead>
-                    <TableHead className="text-right">积分</TableHead>
+                    {facts.map((f) => (
+                      <TableHead key={f.label} className="text-right">
+                        {f.label}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -64,12 +67,11 @@ function StudentsPage() {
                       <TableCell className="font-medium">{s.name}</TableCell>
                       <TableCell>{s.gender}</TableCell>
                       <TableCell>{s.groupName ?? ""}</TableCell>
-                      <TableCell className="text-right">
-                        {s.pendingCount > 0 && <Badge variant="destructive">{s.pendingCount}</Badge>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Delta n={s.points} />
-                      </TableCell>
+                      {facts.map((f) => (
+                        <TableCell key={f.label} className="text-right">
+                          <FactValue n={s.facts[f.label] ?? 0} tone={f.tone} />
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -80,4 +82,11 @@ function StudentsPage() {
       </QueryState>
     </div>
   )
+}
+
+/** 模块提供的统计数字：tone=bad 时大于 0 标红（例如待过关），没有 tone 时按正负着色（例如积分） */
+function FactValue({ n, tone }: { n: number; tone: "bad" | "good" | null }) {
+  if (tone === "bad") return n > 0 ? <Badge variant="destructive">{n}</Badge> : null
+  if (tone === "good") return n > 0 ? <span className="text-success">{n}</span> : null
+  return <Delta n={n} />
 }

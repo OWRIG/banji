@@ -104,25 +104,3 @@ export function checkStats(
   }
   return { ...s, passRate: s.counted ? s.passed / s.counted : null }
 }
-
-/** 显示用：最多保留 1 位小数 */
-export function fmt(n: number | null | undefined) {
-  if (n == null) return ""
-  return String(Math.round(n * 10) / 10)
-}
-
-export function pct(n: number | null | undefined) {
-  if (n == null) return "—"
-  return `${Math.round(n * 1000) / 10}%`
-}
-
-/** 本地日期 YYYY-MM-DD */
-export function today(d = new Date()) {
-  const pad = (n: number) => String(n).padStart(2, "0")
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-/** 姓名规整：去掉空白和 * 号（名单里的星号标记不做任何功能） */
-export function cleanName(name: string) {
-  return name.replace(/[\s*＊]/g, "")
-}

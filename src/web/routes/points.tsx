@@ -30,7 +30,7 @@ function PointsPage() {
   const log = useOp("points.log", { class: code, limit: 50 }, { enabled: !!code })
 
   const visible = useMemo(
-    () => (students.data ?? []).filter((s) => !q || s.name.includes(q) || s.studentNo.includes(q)),
+    () => (students.data?.rows ?? []).filter((s) => !q || s.name.includes(q) || s.studentNo.includes(q)),
     [students.data, q],
   )
 
@@ -104,7 +104,7 @@ function PointsPage() {
                     <div className="truncate">{s.name}</div>
                     <div className="text-xs text-muted-foreground tabular-nums">
                       {s.groupName ? `${s.groupName}组 · ` : ""}
-                      <Delta n={s.points} />
+                      <Delta n={s.facts.积分 ?? 0} />
                     </div>
                   </button>
                 ))}

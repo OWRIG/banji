@@ -1,23 +1,41 @@
 import { and, asc, desc, eq, inArray, isNull, lt, or } from "drizzle-orm"
 import { z } from "zod"
+import { activeStudents } from "@/modules/roster/ops"
+import { type Ctx, classRef, confirmField, defineOp, OpError, studentRef } from "@/server/core/define"
+import { syncAutoPoints } from "@/server/core/points-engine"
+import { resolveClass, resolveOptionalClass, resolveStudents } from "@/server/core/resolve"
 import { db } from "@/server/db"
-import { checkResults, checks, classes, students } from "@/server/db/schema"
-import {
-  type CheckKind,
-  checkKinds,
-  checkModes,
-  checkStats,
-  marks,
-  parseResultValue,
-  resultStatus,
-  today,
-} from "@/shared/checks"
-import { revokeAutoPointsForResults, syncAutoPointsForChecks } from "./auto-points"
-import { classRef, confirmField, defineOp, OpError, studentRef } from "./define"
-import { resolveCheck, resolveClass, resolveOptionalClass, resolveStudents } from "./resolve"
-import { activeStudents } from "./roster"
+import { classes, students } from "@/server/db/schema"
+import { today } from "@/shared/format"
+import { checkResults, checks } from "./schema"
+import { type CheckKind, checkKinds, checkModes, checkStats, marks, parseResultValue, resultStatus } from "./shared"
 
 // 检查项（默写、背书、作业订正…）与待过关池
+
+/** 自动积分的来源类型：每条登记结果是一条来源记录 */
+export const SOURCE = "check_result"
+
+/** 重新结算一场检查的自动积分；removed 是刚删除的结果编号（它们的自动积分要撤销） */
+async function syncCheckPoints(ctx: Ctx, checkId: number, removed: number[] = []) {
+  const rows = await db.select({ id: checkResults.id }).from(checkResults).where(eq(checkResults.checkId, checkId))
+  await syncAutoPoints(ctx, SOURCE, [...rows.map((r) => r.id), ...removed])
+}
+
+export async function resolveCheck(ref: string | number, classId?: number) {
+  const rows = await db
+    .select()
+    .from(checks)
+    .where(
+      typeof ref === "number"
+        ? eq(checks.id, ref)
+        : classId
+          ? and(eq(checks.title, ref.trim()), eq(checks.classId, classId))
+          : eq(checks.title, ref.trim()),
+    )
+  if (rows.length === 0) throw new OpError(404, `找不到检查「${ref}」，可以先用 checks.list 查看`)
+  if (rows.length > 1) throw new OpError(409, `有多场名为「${ref}」的检查，请指定班级或改用编号`)
+  return rows[0]
+}
 
 const kindEnum = z.enum(Object.keys(checkKinds) as [CheckKind, ...CheckKind[]])
 const checkRef = z.union([z.number().int().positive(), z.string().trim().min(1)]).describe("检查：编号或标题")
@@ -79,7 +97,7 @@ export const updateCheck = defineOp({
     const check = await resolveCheck(input.check, cls?.id)
     const { check: _c, class: _cl, ...set } = input
     const updated = await ctx.update(checks, check.id, set)
-    await syncAutoPointsForChecks(ctx, [check.id])
+    await syncCheckPoints(ctx, check.id)
     ctx.summary = `修改检查「${updated?.title}」`
     return updated
   },
@@ -95,11 +113,12 @@ export const deleteCheck = defineOp({
     const cls = await resolveOptionalClass(input.class)
     const check = await resolveCheck(input.check, cls?.id)
     const results = await db.select().from(checkResults).where(eq(checkResults.checkId, check.id))
-    await revokeAutoPointsForResults(
+    for (const r of results) await ctx.remove(checkResults, r.id)
+    await syncAutoPoints(
       ctx,
+      SOURCE,
       results.map((r) => r.id),
     )
-    for (const r of results) await ctx.remove(checkResults, r.id)
     await ctx.remove(checks, check.id)
     ctx.summary = `删除检查「${check.title}」（含 ${results.length} 条登记）`
     return { title: check.title, removedResults: results.length }
@@ -239,9 +258,8 @@ export const recordResults = defineOp({
         await ctx.insert(checkResults, { checkId: check.id, studentId: student.id, ...parsed, updatedAt: now })
       }
     }
-    await revokeAutoPointsForResults(ctx, removed)
     for (const id of removed) await ctx.remove(checkResults, id)
-    await syncAutoPointsForChecks(ctx, [check.id])
+    await syncCheckPoints(ctx, check.id, removed)
 
     const after = await db.select().from(checkResults).where(eq(checkResults.checkId, check.id))
     const names = ss.slice(0, 3).map((s) => s.name)

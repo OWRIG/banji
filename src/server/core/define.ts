@@ -3,20 +3,9 @@ import { eq, getTableName } from "drizzle-orm"
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core"
 import { z } from "zod"
 import { db, sqlite } from "@/server/db"
-import {
-  apiTokens,
-  changesets,
-  checkResults,
-  checks,
-  classes,
-  groups,
-  pointEvents,
-  pointRules,
-  settings,
-  students,
-} from "@/server/db/schema"
+import { changesets, settings } from "@/server/db/schema"
 
-// 业务操作层的骨架。网页接口、CLI、MCP 都通过 runOp 调用业务操作，业务规则只写在 ops/ 里。
+// 业务操作层的骨架。网页接口、CLI、MCP 都通过 runOp 调用业务操作，业务规则只写在各模块的 ops 里。
 //
 // - read：只读
 // - write：修改数据，自动记录变更，可以撤销
@@ -34,19 +23,24 @@ export class OpError extends Error {
   }
 }
 
-// 会被记录变更、可以撤销的表。新增业务表时加到这里
-export const trackedTables = {
-  classes,
-  groups,
-  students,
-  checks,
-  check_results: checkResults,
-  point_rules: pointRules,
-  point_events: pointEvents,
-  api_tokens: apiTokens,
+/** 有整数 id 主键的表：可以记录变更、可以撤销 */
+export type IdTable = SQLiteTable & { id: SQLiteColumn }
+
+// 会被记录变更、可以撤销的表。各模块在 defineModule 的 tables 里声明，由 registry 登记到这里
+const tracked = new Map<string, IdTable>()
+export function registerTable(table: IdTable) {
+  tracked.set(getTableName(table), table)
 }
-type TrackedTable = (typeof trackedTables)[keyof typeof trackedTables]
-type IdTable = SQLiteTable & { id: SQLiteColumn }
+export function trackedTable(name: string) {
+  return tracked.get(name)
+}
+function assertTracked(table: IdTable) {
+  const name = getTableName(table)
+  if (tracked.get(name) !== table) {
+    throw new Error(`数据表 ${name} 没有登记，无法记录变更：请把它加到所属模块 defineModule 的 tables 里`)
+  }
+  return name
+}
 
 export type Change = { table: string; id: number; before: unknown; after: unknown }
 
@@ -57,36 +51,39 @@ export class Ctx {
   constructor(readonly actor: string) {}
 
   /** 新增一行并记录变更 */
-  async insert<T extends TrackedTable>(table: T, values: T["$inferInsert"]): Promise<T["$inferSelect"]> {
+  async insert<T extends IdTable>(table: T, values: T["$inferInsert"]): Promise<T["$inferSelect"]> {
+    const name = assertTracked(table)
     const rows = (await this.db
       .insert(table as IdTable)
       .values(values)
       .returning()) as T["$inferSelect"][]
     const row = rows[0] as T["$inferSelect"] & { id: number }
-    this.changes.push({ table: getTableName(table), id: row.id, before: null, after: row })
+    this.changes.push({ table: name, id: row.id, before: null, after: row })
     return row
   }
 
   /** 修改一行并记录变更；记录不存在时返回 undefined */
-  async update<T extends TrackedTable>(
+  async update<T extends IdTable>(
     table: T,
     id: number,
     set: Partial<T["$inferInsert"]>,
   ): Promise<T["$inferSelect"] | undefined> {
+    const name = assertTracked(table)
     const t = table as IdTable
     const [before] = await this.db.select().from(t).where(eq(t.id, id))
     if (!before) return undefined
     const [after] = await this.db.update(t).set(set).where(eq(t.id, id)).returning()
-    this.changes.push({ table: getTableName(table), id, before, after })
+    this.changes.push({ table: name, id, before, after })
     return after as T["$inferSelect"]
   }
 
   /** 删除一行并记录变更；记录不存在时返回 undefined */
-  async remove<T extends TrackedTable>(table: T, id: number): Promise<T["$inferSelect"] | undefined> {
+  async remove<T extends IdTable>(table: T, id: number): Promise<T["$inferSelect"] | undefined> {
+    const name = assertTracked(table)
     const t = table as IdTable
     const [before] = await this.db.delete(t).where(eq(t.id, id)).returning()
     if (!before) return undefined
-    this.changes.push({ table: getTableName(table), id, before, after: null })
+    this.changes.push({ table: name, id, before, after: null })
     return before as T["$inferSelect"]
   }
 }

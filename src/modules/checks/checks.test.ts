@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest"
-import { OpError, runOp } from "./define"
-import { ops } from "./index"
-import { ensureDefaultRules } from "./points"
+import { OpError, runOp } from "@/server/core/define"
+import { initModules, ops } from "@/server/registry"
 
 // 业务操作测试：直接调用 runOp，和网页、CLI、MCP 走的是同一条路。
 // 测试使用内存数据库（见 vite.config.ts），每个测试文件都是一个全新的空库。
@@ -34,11 +33,11 @@ const roster = {
 
 async function totalPoints(student: string) {
   const p = await runOp(ops["students.profile"], { student, class: "705" }, as)
-  return p.data.points.net
+  return p.data.sections.points?.net ?? 0
 }
 
 beforeAll(async () => {
-  await ensureDefaultRules()
+  await initModules()
   await importDemo()
 })
 
@@ -136,7 +135,7 @@ describe("默写 → 待过关 → 销账", () => {
 
   it("停用自动规则会清掉自动积分，重新启用会补回", async () => {
     const rules = (await runOp(ops["rules.list"], {}, as)).data
-    const full = rules.find((r) => r.autoTrigger === "check_full_score")
+    const full = rules.find((r) => r.autoTrigger === "checks.dictation_full")
     if (!full) throw new Error("缺少默认规则")
     await runOp(ops["rules.save"], { id: full.id, enabled: false }, as)
     expect(await totalPoints("李明")).toBe(0)

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import type { OpOutcome } from "@/server/ops/define"
-import type { OpData, OpInput, OpName } from "@/server/ops/index"
+import type { OpOutcome } from "@/server/core/define"
+import type { OpData, OpInput, OpName } from "@/server/registry"
 import { authClient } from "./auth-client"
 
 // 前端调用业务操作的唯一入口：参数和返回值的类型直接来自 src/server/ops/。

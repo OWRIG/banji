@@ -1,37 +1,11 @@
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 import { z } from "zod"
+import { classRef, confirmField, defineOp, OpError, studentRef } from "@/server/core/define"
+import { cleanName, resolveClass, resolveOptionalClass, resolveStudents } from "@/server/core/resolve"
 import { db } from "@/server/db"
-import { checkResults, checks, classes, groups, pointEvents, students } from "@/server/db/schema"
-import { cleanName, resultStatus } from "@/shared/checks"
-import { classRef, confirmField, defineOp, OpError, studentRef } from "./define"
-import { resolveClass, resolveOptionalClass, resolveStudent, resolveStudents } from "./resolve"
+import { classes, groups, students } from "@/server/db/schema"
 
 // 班级、分组、学生名册
-
-/** 每个学生的待过关数和积分净值 */
-export async function studentStats(classId?: number) {
-  const pendingRows = await db
-    .select({
-      studentId: checkResults.studentId,
-      score: checkResults.score,
-      mark: checkResults.mark,
-      passLine: checks.passLine,
-    })
-    .from(checkResults)
-    .innerJoin(checks, eq(checks.id, checkResults.checkId))
-    .where(classId ? and(isNull(checkResults.clearedAt), eq(checks.classId, classId)) : isNull(checkResults.clearedAt))
-  const pending = new Map<number, number>()
-  for (const r of pendingRows) {
-    if (resultStatus(r, r) === "failed") pending.set(r.studentId, (pending.get(r.studentId) ?? 0) + 1)
-  }
-  const pointRows = await db
-    .select({ studentId: pointEvents.studentId, net: sql<number>`sum(${pointEvents.delta})` })
-    .from(pointEvents)
-    .where(isNull(pointEvents.revokedAt))
-    .groupBy(pointEvents.studentId)
-  const points = new Map(pointRows.map((r) => [r.studentId, Number(r.net)]))
-  return { pending, points }
-}
 
 export const listClasses = defineOp({
   name: "classes.list",
@@ -52,41 +26,6 @@ export const listClasses = defineOp({
       studentCount: Number(counts.find((x) => x.classId === c.id)?.n ?? 0),
       groups: gs.filter((g) => g.classId === c.id).map((g) => ({ id: g.id, name: g.name })),
     }))
-  },
-})
-
-export const listStudents = defineOp({
-  name: "students.list",
-  title: "学生列表",
-  description: "按班级、分组、关键字（姓名或学号）列出学生，附带每人的待过关数和积分。",
-  kind: "read",
-  input: z.object({
-    class: classRef.optional(),
-    groupId: z.number().int().optional().describe("分组编号"),
-    q: z.string().trim().optional().describe("姓名或学号关键字"),
-  }),
-  run: async (_ctx, input) => {
-    const cls = await resolveOptionalClass(input.class)
-    const rows = await db
-      .select({ s: students, groupName: groups.name, classCode: classes.code, className: classes.name })
-      .from(students)
-      .innerJoin(classes, eq(classes.id, students.classId))
-      .leftJoin(groups, eq(groups.id, students.groupId))
-      .where(and(eq(students.active, true), cls ? eq(students.classId, cls.id) : undefined))
-      .orderBy(asc(students.studentNo))
-    const { pending, points } = await studentStats(cls?.id)
-    const q = input.q ? cleanName(input.q) : ""
-    return rows
-      .filter((r) => (input.groupId ? r.s.groupId === input.groupId : true))
-      .filter((r) => (q ? r.s.name.includes(q) || r.s.studentNo.includes(q) : true))
-      .map((r) => ({
-        ...r.s,
-        groupName: r.groupName,
-        classCode: r.classCode,
-        className: r.className,
-        pendingCount: pending.get(r.s.id) ?? 0,
-        points: points.get(r.s.id) ?? 0,
-      }))
   },
 })
 
@@ -273,62 +212,6 @@ export const importRoster = defineOp({
     }
     ctx.summary = `导入名册：${report.map((r) => `${r.class} 共 ${r.total} 人`).join("；")}`
     return report
-  },
-})
-
-export const studentProfile = defineOp({
-  name: "students.profile",
-  title: "学生档案",
-  description: "一个学生的汇总：基本信息、待过关、最近的检查记录、积分和积分明细。准备谈话、家访前先看这个。",
-  kind: "read",
-  input: z.object({ student: studentRef, class: classRef.optional() }),
-  run: async (_ctx, input) => {
-    const cls = await resolveOptionalClass(input.class)
-    const s = await resolveStudent(input.student, cls?.id)
-    const [info] = await db
-      .select({ classCode: classes.code, className: classes.name, groupName: groups.name })
-      .from(students)
-      .innerJoin(classes, eq(classes.id, students.classId))
-      .leftJoin(groups, eq(groups.id, students.groupId))
-      .where(eq(students.id, s.id))
-
-    const results = await db
-      .select({ r: checkResults, c: checks })
-      .from(checkResults)
-      .innerJoin(checks, eq(checks.id, checkResults.checkId))
-      .where(eq(checkResults.studentId, s.id))
-    const history = results
-      .map(({ r, c }) => ({
-        resultId: r.id,
-        checkId: c.id,
-        kind: c.kind,
-        title: c.title,
-        date: c.date,
-        createdAt: c.createdAt,
-        score: r.score,
-        mark: r.mark,
-        status: resultStatus(c, r),
-        clearedAt: r.clearedAt,
-      }))
-      .sort((a, b) => (b.date ?? b.createdAt).localeCompare(a.date ?? a.createdAt) || b.checkId - a.checkId)
-    const counted = history.filter((h) => h.status === "passed" || h.status === "failed")
-    const events = await db
-      .select()
-      .from(pointEvents)
-      .where(and(eq(pointEvents.studentId, s.id), isNull(pointEvents.revokedAt)))
-    events.sort((a, b) => b.id - a.id)
-    return {
-      student: { ...s, ...info },
-      pending: history.filter((h) => h.status === "failed" && !h.clearedAt),
-      passRate: counted.length ? counted.filter((h) => h.status === "passed").length / counted.length : null,
-      recentChecks: history.slice(0, 15),
-      points: {
-        net: events.reduce((a, e) => a + e.delta, 0),
-        bonus: events.filter((e) => e.delta > 0).reduce((a, e) => a + e.delta, 0),
-        minus: events.filter((e) => e.delta < 0).reduce((a, e) => a + e.delta, 0),
-        recent: events.slice(0, 30),
-      },
-    }
   },
 })
 

@@ -2,17 +2,16 @@ import { useQueryClient } from "@tanstack/react-query"
 import { createRootRoute, Link, Navigate, Outlet, useLocation } from "@tanstack/react-router"
 import { Toaster } from "@/web/components/ui/sonner"
 import { authClient } from "@/web/lib/auth-client"
+import { useOp } from "@/web/lib/ops"
+import { webModules } from "@/web/modules"
 
 export const Route = createRootRoute({
   component: RootLayout,
   notFoundComponent: () => <p className="text-muted-foreground">页面不存在</p>,
 })
 
-// 新增页面后在这里加一项
-const nav = [
-  { to: "/", label: "今日" },
-  { to: "/checks", label: "默写过关" },
-  { to: "/pending", label: "待过关" },
+// 导航：今日 → 各功能模块的入口（在模块的 web.tsx 里声明，停用的模块不显示）→ 核心页面
+const coreNav = [
   { to: "/points", label: "加分积分" },
   { to: "/students", label: "学生档案" },
   { to: "/settings", label: "数据与设置" },
@@ -23,6 +22,13 @@ function RootLayout() {
   const { data: session, isPending } = authClient.useSession()
   const pathname = useLocation({ select: (location) => location.pathname })
   const queryClient = useQueryClient()
+  const moduleList = useOp("modules.list", {})
+  const enabled = new Set((moduleList.data ?? []).filter((m) => m.enabled).map((m) => m.id as string))
+  const nav = [
+    { to: "/", label: "今日" },
+    ...webModules.filter((m) => enabled.has(m.id)).flatMap((m) => m.nav ?? []),
+    ...coreNav,
+  ]
 
   if (isPending) return null
   if (!session)
@@ -53,7 +59,7 @@ function RootLayout() {
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 text-sm md:flex-col md:overflow-visible md:pb-0">
           {nav.map((item) => (
             <Link
-              key={item.to}
+              key={String(item.to)}
               to={item.to}
               activeOptions={{ exact: item.to === "/" }}
               className="whitespace-nowrap rounded-md px-3 py-2 opacity-75 hover:bg-sidebar-accent hover:opacity-100 [&.active]:bg-sidebar-accent [&.active]:text-sidebar-primary [&.active]:opacity-100"

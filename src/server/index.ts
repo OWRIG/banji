@@ -4,9 +4,9 @@ import { Hono } from "hono"
 import { app, mcpApp } from "./app"
 import { dailyBackupIfNeeded } from "./backup"
 import { env } from "./env"
-import { ensureDefaultRules } from "./ops/points"
+import { initModules } from "./registry"
 
-await ensureDefaultRules()
+await initModules()
 
 const server = new Hono().route("/", app).route("/", mcpApp)
 server.all("/api/*", (c) => c.json({ message: "接口不存在" }, 404))

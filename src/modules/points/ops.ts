@@ -1,35 +1,12 @@
 import { and, asc, desc, eq, gte, inArray, isNull } from "drizzle-orm"
 import { z } from "zod"
+import { classRef, defineOp, OpError, studentRef } from "@/server/core/define"
+import { allTriggers, syncAllAutoPoints } from "@/server/core/points-engine"
+import { resolveOptionalClass, resolveStudents } from "@/server/core/resolve"
 import { db } from "@/server/db"
 import { classes, groups, pointEvents, pointRules, students } from "@/server/db/schema"
-import { type AutoTrigger, autoTriggers, syncAllAutoPoints } from "./auto-points"
-import { classRef, defineOp, OpError, studentRef } from "./define"
-import { resolveOptionalClass, resolveStudents } from "./resolve"
 
 // 加分、扣分、规则、排行榜
-
-export const defaultRules: { name: string; delta: number; autoTrigger?: AutoTrigger }[] = [
-  { name: "默写满分", delta: 1, autoTrigger: "check_full_score" },
-  { name: "背书一次过关", delta: 1, autoTrigger: "recite_first_pass" },
-  { name: "课堂发言/答对", delta: 1 },
-  { name: "作业优秀/按时", delta: 1 },
-  { name: "考试进步", delta: 2 },
-  { name: "好人好事/热心班级", delta: 2 },
-  { name: "值日认真", delta: 1 },
-  { name: "活动参与", delta: 2 },
-  { name: "获奖/受表扬", delta: 5 },
-  { name: "未交作业", delta: -1 },
-  { name: "纪律提醒", delta: -1 },
-]
-
-/** 第一次启动时写入默认规则（不记入变更记录） */
-export async function ensureDefaultRules() {
-  const existing = await db.select({ id: pointRules.id }).from(pointRules).limit(1)
-  if (existing.length) return
-  await db
-    .insert(pointRules)
-    .values(defaultRules.map((r, i) => ({ ...r, autoTrigger: r.autoTrigger ?? null, sort: i })))
-}
 
 export const listRules = defineOp({
   name: "rules.list",
@@ -41,7 +18,7 @@ export const listRules = defineOp({
     const rows = await db.select().from(pointRules).orderBy(asc(pointRules.sort), asc(pointRules.id))
     return rows
       .filter((r) => input.includeDisabled || r.enabled)
-      .map((r) => ({ ...r, autoLabel: r.autoTrigger ? autoTriggers[r.autoTrigger as AutoTrigger] : null }))
+      .map((r) => ({ ...r, autoLabel: r.autoTrigger ? (allTriggers()[r.autoTrigger] ?? "（来源模块已停用）") : null }))
   },
 })
 

@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useState } from "react"
 import { toast } from "sonner"
-import type { OpData, OpInput, OpName } from "@/server/ops/index"
+import type { OpData, OpInput, OpName } from "@/server/registry"
 import { Button } from "@/web/components/ui/button"
 import {
   Dialog,

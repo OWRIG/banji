@@ -25,6 +25,7 @@ function SettingsPage() {
     <div className="space-y-6">
       <PageHeader title="数据与设置" />
       <BackupSection />
+      <ModulesSection />
       <HistorySection />
       <RulesSection />
       <ImportSection />
@@ -74,6 +75,40 @@ function BackupSection() {
       <p className="mt-3 text-xs text-muted-foreground">
         从备份恢复：停止服务后运行 banji restore 备份文件路径（恢复前会自动再备份一次当前数据）。
       </p>
+    </Section>
+  )
+}
+
+function ModulesSection() {
+  const list = useOp("modules.list", {})
+  const toggle = useOpMutation("modules.setEnabled")
+  return (
+    <Section
+      title="功能模块"
+      desc="用不到的功能可以停用：页面、首页内容、agent 工具都会隐藏，数据保留，随时可以重新启用。"
+    >
+      <QueryState query={list}>
+        {(rows) => (
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {rows.map((m) => (
+              <div key={m.id} className="flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
+                <div className="flex-1">
+                  <div className={m.enabled ? "font-medium" : "font-medium text-muted-foreground"}>
+                    {m.title}
+                    {m.core && <span className="ml-2 text-xs font-normal text-muted-foreground">核心</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">{m.description}</div>
+                </div>
+                {!m.core && (
+                  <Button size="xs" variant="ghost" onClick={() => toggle.mutate({ id: m.id, enabled: !m.enabled })}>
+                    {m.enabled ? "停用" : "启用"}
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </QueryState>
     </Section>
   )
 }

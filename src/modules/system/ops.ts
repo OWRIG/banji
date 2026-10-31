@@ -1,17 +1,12 @@
 import { createHash, randomBytes } from "node:crypto"
-import { and, desc, eq, getTableName, inArray, isNull, ne } from "drizzle-orm"
+import { and, desc, eq, isNull, ne } from "drizzle-orm"
 import { z } from "zod"
 import { createBackup, listBackups } from "@/server/backup"
+import { type Change, defineOp, OpError, trackedTable } from "@/server/core/define"
 import { db } from "@/server/db"
-import { apiTokens, changesets, checkResults, checks, classes } from "@/server/db/schema"
-import { checkStats, today } from "@/shared/checks"
-import { pendingItems } from "./checks"
-import { type Change, defineOp, OpError, trackedTables } from "./define"
+import { apiTokens, changesets } from "@/server/db/schema"
 
 // 撤销、操作记录、今日概览、备份、访问令牌
-
-type IdTable = (typeof trackedTables)[keyof typeof trackedTables]
-const tableByName = new Map<string, IdTable>(Object.values(trackedTables).map((t) => [getTableName(t), t]))
 
 function same(a: unknown, b: unknown) {
   return JSON.stringify(a) === JSON.stringify(b)
@@ -39,7 +34,7 @@ export const undo = defineOp({
 
     const changes = JSON.parse(cs.changes) as Change[]
     for (const ch of [...changes].reverse()) {
-      const table = tableByName.get(ch.table)
+      const table = trackedTable(ch.table)
       if (!table) throw new OpError(409, `无法撤销：未知的数据表 ${ch.table}`)
       const [current] = await ctx.db.select().from(table).where(eq(table.id, ch.id))
       const expected = ch.after
@@ -68,49 +63,6 @@ export const history = defineOp({
   run: async (_ctx, input) => {
     const rows = await db.select().from(changesets).orderBy(desc(changesets.id)).limit(input.limit)
     return rows.map(({ changes, ...r }) => ({ ...r, changeCount: (JSON.parse(changes) as unknown[]).length }))
-  },
-})
-
-export const briefToday = defineOp({
-  name: "brief.today",
-  title: "今日概览",
-  description: "首页数据：各班待过关名单、今天的检查登记情况、最近一次备份。适合每天开始工作时先看。",
-  kind: "read",
-  input: z.object({}),
-  run: async () => {
-    const date = today()
-    const cls = await db.select().from(classes).orderBy(classes.sort, classes.code)
-    const pending = await pendingItems({})
-    const todays = await db.select().from(checks).where(eq(checks.date, date))
-    const results = todays.length
-      ? await db
-          .select()
-          .from(checkResults)
-          .where(
-            inArray(
-              checkResults.checkId,
-              todays.map((c) => c.id),
-            ),
-          )
-      : []
-    const lastBackup = listBackups()[0] ?? null
-    return {
-      date,
-      classes: cls.map((c) => ({
-        id: c.id,
-        code: c.code,
-        name: c.name,
-        pending: pending.filter((p) => p.classCode === c.code),
-      })),
-      todayChecks: todays.map((c) => ({
-        ...c,
-        stats: checkStats(
-          c,
-          results.filter((r) => r.checkId === c.id),
-        ),
-      })),
-      lastBackup: lastBackup ? { name: lastBackup.name, createdAt: lastBackup.createdAt } : null,
-    }
   },
 })
 

@@ -13,13 +13,12 @@ const program = new Command()
   .showHelpAfterError()
 
 async function core() {
-  const [{ runOp, OpError }, { ops, findOp, opList }, { ensureDefaultRules }] = await Promise.all([
-    import("@/server/ops/define"),
-    import("@/server/ops/index"),
-    import("@/server/ops/points"),
+  const [{ runOp, OpError }, { ops, findOp, opList, initModules, modules }] = await Promise.all([
+    import("@/server/core/define"),
+    import("@/server/registry"),
   ])
-  await ensureDefaultRules()
-  return { runOp, OpError, ops, findOp, opList }
+  await initModules()
+  return { runOp, OpError, ops, findOp, opList, modules }
 }
 
 /** ISO 时间 → 本地时间 "2026-11-02 08:15" */
@@ -43,7 +42,7 @@ type Outcome = { applied: boolean; confirm: string | null; changesetId: number |
 /** 执行操作并打印结果；危险操作先打印预览，--yes 时自动确认 */
 async function exec(name: string, input: Record<string, unknown>, opts: { yes?: boolean; json?: boolean } = {}) {
   const { runOp, findOp } = await core()
-  const op = findOp(name)
+  const op = await findOp(name).catch(fail)
   if (!op) fail(`没有这个操作：${name}。用 banji ops 查看全部操作`)
   let out = (await runOp(op, input, { actor: ACTOR }).catch(fail)) as Outcome
   if (!out.applied) {
@@ -77,7 +76,7 @@ program
   .action(async (name: string) => {
     const { findOp } = await core()
     const { z } = await import("zod")
-    const op = findOp(name)
+    const op = await findOp(name).catch(fail)
     if (!op) fail(`没有这个操作：${name}`)
     print(`${op.title}（${op.kind}）\n${op.description}\n`)
     print(z.toJSONSchema(op.input, { io: "input" }))
@@ -107,22 +106,27 @@ program
     const { runOp, ops } = await core()
     const { data } = await runOp(ops["brief.today"], {}, { actor: ACTOR }).catch(fail)
     console.log(`${data.date}`)
-    for (const c of data.classes) {
-      console.log(`\n${c.name}（${c.code}）待过关 ${c.pending.length} 条`)
-      const byStudent = new Map<string, string[]>()
-      for (const p of c.pending) {
-        const list = byStudent.get(p.student.name) ?? []
-        list.push(`${p.check.title}${p.score != null ? `（${p.score}）` : ""}`)
-        byStudent.set(p.student.name, list)
+    const checks = data.sections.checks
+    if (checks) {
+      for (const c of data.classes) {
+        const pending = checks.pending.filter((p) => p.classCode === c.code)
+        console.log(`\n${c.name}（${c.code}）待过关 ${pending.length} 条`)
+        const byStudent = new Map<string, string[]>()
+        for (const p of pending) {
+          const list = byStudent.get(p.student.name) ?? []
+          list.push(`${p.check.title}${p.score != null ? `（${p.score}）` : ""}`)
+          byStudent.set(p.student.name, list)
+        }
+        for (const [name, items] of byStudent) console.log(`  ${name}：${items.join("；")}`)
       }
-      for (const [name, items] of byStudent) console.log(`  ${name}：${items.join("；")}`)
+      if (checks.todayChecks.length) {
+        console.log("\n今天的检查：")
+        for (const c of checks.todayChecks)
+          console.log(`  ${c.title}：已录 ${c.stats.entered} 人，未达标 ${c.stats.failed}`)
+      }
     }
-    if (data.todayChecks.length) {
-      console.log("\n今天的检查：")
-      for (const c of data.todayChecks)
-        console.log(`  ${c.title}：已录 ${c.stats.entered} 人，未达标 ${c.stats.failed}`)
-    }
-    console.log(`\n最近备份：${data.lastBackup ? localTime(data.lastBackup.createdAt) : "还没有"}`)
+    const last = data.sections.system?.lastBackup
+    console.log(`\n最近备份：${last ? localTime(last.createdAt) : "还没有"}`)
   })
 
 program
@@ -303,7 +307,7 @@ program
       import("@/server/mcp"),
       import("@modelcontextprotocol/sdk/server/stdio.js"),
     ])
-    await createMcpServer(`mcp:${opts.name}`).connect(new StdioServerTransport())
+    await (await createMcpServer(`mcp:${opts.name}`)).connect(new StdioServerTransport())
   })
 
 await program.parseAsync()

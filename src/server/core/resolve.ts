@@ -1,11 +1,15 @@
 import { and, eq } from "drizzle-orm"
 import { db } from "@/server/db"
-import { checks, classes, students } from "@/server/db/schema"
-import { cleanName } from "@/shared/checks"
+import { classes, students } from "@/server/db/schema"
 import { OpError } from "./define"
 
-// 把"人话"指代解析成数据库记录。agent 和 CLI 习惯用姓名、班级代号，网页用内部编号。
+// 把"人话"指代解析成数据库记录（班级、学生是所有模块共用的）。agent 和 CLI 习惯用姓名、班级代号，网页用内部编号。
 // 原则：对不上或有歧义时直接报错并列出候选，绝不猜。
+
+/** 姓名规整：去掉空白和 * 号（名单里的星号标记不做任何功能） */
+export function cleanName(name: string) {
+  return name.replace(/[\s*＊]/g, "")
+}
 
 export type ClassRow = typeof classes.$inferSelect
 export type StudentRow = typeof students.$inferSelect
@@ -78,20 +82,4 @@ export async function resolveStudents(refs: (string | number)[], classId?: numbe
 export async function resolveStudent(ref: string | number, classId?: number) {
   const [s] = await resolveStudents([ref], classId)
   return s
-}
-
-export async function resolveCheck(ref: string | number, classId?: number) {
-  const rows = await db
-    .select()
-    .from(checks)
-    .where(
-      typeof ref === "number"
-        ? eq(checks.id, ref)
-        : classId
-          ? and(eq(checks.title, ref.trim()), eq(checks.classId, classId))
-          : eq(checks.title, ref.trim()),
-    )
-  if (rows.length === 0) throw new OpError(404, `找不到检查「${ref}」，可以先用 checks.list 查看`)
-  if (rows.length > 1) throw new OpError(409, `有多场名为「${ref}」的检查，请指定班级或改用编号`)
-  return rows[0]
 }

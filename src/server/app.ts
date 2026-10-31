@@ -3,18 +3,18 @@ import { Readable } from "node:stream"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
 import { Hono } from "hono"
 import { HTTPException } from "hono/http-exception"
+import { verifyToken } from "@/modules/system/ops"
 import { type AuthEnv, auth, hasAnyUser, requireAuth } from "./auth"
 import { createBackup } from "./backup"
+import { OpError, runOp } from "./core/define"
 import { createMcpServer } from "./mcp"
-import { OpError, runOp } from "./ops/define"
-import { findOp } from "./ops/index"
-import { verifyToken } from "./ops/system"
+import { findOp } from "./registry"
 
 // 业务接口只有一个入口：POST /api/ops/<操作名>，请求体就是操作的参数。
-// 业务规则全部在 ops/ 里；前端用 src/web/lib/ops.ts 调用，参数和返回值都有类型。
+// 业务规则全部在各模块的 ops 里；前端用 src/web/lib/ops.ts 调用，参数和返回值都有类型。
 
 const opsRoute = new Hono<AuthEnv>().post("/:name", async (c) => {
-  const op = findOp(c.req.param("name"))
+  const op = await findOp(c.req.param("name"))
   if (!op) return c.json({ message: "接口不存在" }, 404)
   const body = await c.req.json().catch(() => ({}))
   const out = await runOp(op, body, { actor: `web:${c.get("user").name}` })
@@ -58,7 +58,7 @@ export const mcpApp = new Hono().all("/mcp", async (c) => {
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : ""
   const name = token ? await verifyToken(token) : null
   if (!name) return c.json({ message: "访问令牌无效或已作废" }, 401)
-  const server = createMcpServer(`mcp:${name}`)
+  const server = await createMcpServer(`mcp:${name}`)
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
