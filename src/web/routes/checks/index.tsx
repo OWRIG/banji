@@ -150,8 +150,8 @@ function NewCheckDialog(props: {
         <DialogHeader>
           <DialogTitle>新建检查 · {props.className}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="flex flex-wrap gap-1.5">
+        <form onSubmit={submit} className="space-y-6">
+          <div className="flex flex-wrap gap-2">
             {(Object.keys(checkKinds) as CheckKind[]).map((k) => (
               <Button
                 key={k}
@@ -167,7 +167,7 @@ function NewCheckDialog(props: {
               </Button>
             ))}
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2.5">
             <Label htmlFor="title">标题</Label>
             <Input
               id="title"
@@ -178,12 +178,12 @@ function NewCheckDialog(props: {
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2.5">
               <Label htmlFor="date">日期（可空）</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               <Label htmlFor="pass">过关线</Label>
               <Input
                 id="pass"
@@ -193,7 +193,7 @@ function NewCheckDialog(props: {
                 disabled={mode === "mark"}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2.5">
               <Label htmlFor="full">满分</Label>
               <Input
                 id="full"
@@ -204,16 +204,19 @@ function NewCheckDialog(props: {
               />
             </div>
           </div>
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-1.5">
+          <div className="flex flex-col gap-2.5 text-sm">
+            <label className="flex items-center gap-2">
               <input type="radio" checked={mode === "score"} onChange={() => setMode("score")} /> 分数登记
             </label>
-            <label className="flex items-center gap-1.5">
+            <label className="flex items-center gap-2">
               <input type="radio" checked={mode === "mark"} onChange={() => setMode("mark")} /> 快速标记（过 / 未过 /
               请假 / 免）
             </label>
           </div>
           <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => props.onOpenChange(false)}>
+              取消
+            </Button>
             <Button type="submit" disabled={create.isPending}>
               创建并开始登记
             </Button>

@@ -12,17 +12,17 @@ export const Route = createFileRoute("/settings")({ component: SettingsPage })
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card p-4">
+    <section className="rounded-lg border bg-card p-6">
       <h2 className="font-semibold">{title}</h2>
-      {desc && <p className="mt-1 text-sm text-muted-foreground">{desc}</p>}
-      <div className="mt-3">{children}</div>
+      {desc && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{desc}</p>}
+      <div className="mt-5">{children}</div>
     </section>
   )
 }
 
 function SettingsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       <PageHeader title="数据与设置" />
       <BackupSection />
       <ModulesSection />
@@ -163,28 +163,30 @@ function RulesSection() {
       <QueryState query={rules}>
         {(rows) => (
           <div className="divide-y rounded-md border">
-            {rows.map((r) => (
-              <div key={r.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
-                <div className="min-w-0 flex-1">
-                  <div className={r.enabled ? "font-medium" : "text-muted-foreground line-through"}>{r.name}</div>
-                  {r.autoLabel && <div className="text-xs text-muted-foreground">{r.autoLabel}</div>}
+            {rows
+              .filter((r) => r.autoTrigger)
+              .map((r) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <div className={r.enabled ? "font-medium" : "text-muted-foreground line-through"}>{r.name}</div>
+                    {r.autoLabel && <div className="text-xs text-muted-foreground">{r.autoLabel}</div>}
+                  </div>
+                  <Input
+                    key={`${r.id}-${r.delta}`}
+                    defaultValue={String(r.delta)}
+                    inputMode="numeric"
+                    aria-label={`${r.name} 分值`}
+                    className="h-8 w-16 text-right tabular-nums"
+                    onBlur={(e) => {
+                      const n = Number(e.currentTarget.value)
+                      if (Number.isInteger(n) && n !== 0 && n !== r.delta) save.mutate({ id: r.id, delta: n })
+                    }}
+                  />
+                  <Button size="xs" variant="ghost" onClick={() => save.mutate({ id: r.id, enabled: !r.enabled })}>
+                    {r.enabled ? "停用" : "启用"}
+                  </Button>
                 </div>
-                <Input
-                  key={`${r.id}-${r.delta}`}
-                  defaultValue={String(r.delta)}
-                  inputMode="numeric"
-                  aria-label={`${r.name} 分值`}
-                  className="h-7 w-14 text-right tabular-nums"
-                  onBlur={(e) => {
-                    const n = Number(e.currentTarget.value)
-                    if (Number.isInteger(n) && n !== 0 && n !== r.delta) save.mutate({ id: r.id, delta: n })
-                  }}
-                />
-                <Button size="xs" variant="ghost" onClick={() => save.mutate({ id: r.id, enabled: !r.enabled })}>
-                  {r.enabled ? "停用" : "启用"}
-                </Button>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </QueryState>
@@ -313,7 +315,7 @@ function TokenSection() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="令牌名称，例如 我的 Claude"
-          className="h-8 w-56"
+          className="w-56"
           required
         />
         <Button size="sm" type="submit">

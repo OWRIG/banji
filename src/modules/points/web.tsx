@@ -11,7 +11,7 @@ export const pointsWeb: WebModule = {
     if (!data) return null
     return (
       <section>
-        <h2 className="mb-2 font-semibold">
+        <h2 className="mb-3 font-semibold">
           积分 <Delta n={data.net} className="ml-1" />
           <span className="ml-2 text-sm font-normal text-muted-foreground">
             加 +{data.bonus} · 扣 {data.minus}

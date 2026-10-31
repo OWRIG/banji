@@ -14,7 +14,7 @@ function StudentPage() {
   return (
     <QueryState query={profile}>
       {(p) => (
-        <div className="space-y-6">
+        <div className="space-y-10">
           <PageHeader
             title={p.student.name}
             subtitle={`${p.student.className} · 学号 ${p.student.studentNo}${p.student.groupName ? ` · ${p.student.groupName}组` : ""}${p.student.gender ? ` · ${p.student.gender}` : ""}`}

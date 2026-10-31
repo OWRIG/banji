@@ -25,7 +25,7 @@ export const notesWeb: WebModule = {
 
     return (
       <section>
-        <h2 className="mb-2 font-semibold">谈话记录</h2>
+        <h2 className="mb-3 font-semibold">谈话记录</h2>
         <div className="no-print mb-3 space-y-2">
           <div className="flex gap-1">
             {(Object.keys(noteKinds) as NoteKind[]).map((k) => (

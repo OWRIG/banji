@@ -33,7 +33,7 @@ export const examsWeb: WebModule = {
     const taken = history.filter((h) => h.score != null)
     return (
       <section>
-        <h2 className="mb-2 font-semibold">考试成绩</h2>
+        <h2 className="mb-3 font-semibold">考试成绩</h2>
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">还没有考试成绩</p>
         ) : (

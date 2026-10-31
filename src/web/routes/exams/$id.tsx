@@ -256,7 +256,7 @@ function ScoreEditor({ detail }: { detail: Detail }) {
                         value={draft[k] ?? cellText(cell)}
                         inputMode="decimal"
                         aria-label={`${r.student.name} ${s.name}`}
-                        className={cn("h-7 w-16 tabular-nums", !(k in draft) && levelClass(cell?.score, s.full))}
+                        className={cn("h-8 w-18 tabular-nums", !(k in draft) && levelClass(cell?.score, s.full))}
                         onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
                         onKeyDown={(e) => onKeyDown(e, i, s.name)}
                         onBlur={(e) => void save(i, s.name, e.currentTarget.value.trim())}
@@ -339,7 +339,7 @@ function Analysis({ detail }: { detail: Detail }) {
   const award = useOpMutation("exams.awardProgress")
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
       <div className="no-print flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">科目</span>
         <Picker
@@ -417,7 +417,7 @@ function Analysis({ detail }: { detail: Detail }) {
             </section>
 
             <section>
-              <h2 className="mb-2 font-semibold">临界生</h2>
+              <h2 className="mb-3 font-semibold">临界生</h2>
               <p className="mb-2 text-xs text-muted-foreground">
                 离及格线（{fmt(a.borderline.passLine)}）、优秀线（{fmt(a.borderline.excellentLine)}）差满分 10%
                 以内的学生。
@@ -430,7 +430,7 @@ function Analysis({ detail }: { detail: Detail }) {
 
             {a.peers.length > 0 && (
               <section>
-                <h2 className="mb-2 font-semibold">同卷班级对比</h2>
+                <h2 className="mb-3 font-semibold">同卷班级对比</h2>
                 <div className="overflow-x-auto rounded-lg border bg-card">
                   <table className="w-full text-sm tabular-nums">
                     <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
@@ -502,7 +502,7 @@ function ProgressList({
   tone: "good" | "bad"
 }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-lg border bg-card p-5">
       <h3 className="mb-2 text-sm font-medium">{title}</h3>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">没有</p>
@@ -536,7 +536,7 @@ function ProgressList({
 
 function BorderList({ title, rows }: { title: string; rows: OpData<"exams.analyze">["borderline"]["pass"] }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-lg border bg-card p-5">
       <h3 className="mb-2 text-sm font-medium">
         {title}（{rows.length}）
       </h3>

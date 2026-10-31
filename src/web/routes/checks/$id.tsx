@@ -203,7 +203,7 @@ function CheckEditor({ detail }: { detail: Detail }) {
                           }}
                           value={value}
                           inputMode="decimal"
-                          className="h-7 w-20 tabular-nums"
+                          className="h-8 w-20 tabular-nums"
                           onChange={(e) => setDraft((d) => ({ ...d, [r.student.id]: e.target.value }))}
                           onKeyDown={(e) => onKeyDown(e, i)}
                           onBlur={(e) => void save(i, e.currentTarget.value.trim())}

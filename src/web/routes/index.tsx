@@ -16,7 +16,7 @@ function TodayPage() {
         const lastBackup = data.sections.system?.lastBackup ?? null
         const days = lastBackup ? (Date.now() - new Date(lastBackup.createdAt).getTime()) / 86_400_000 : null
         return (
-          <div className="space-y-6">
+          <div className="space-y-10">
             <PageHeader
               title="今日"
               subtitle={`${data.date} 星期${weekday[new Date(`${data.date}T00:00`).getDay()]}`}

@@ -22,7 +22,7 @@ function StudentsPage() {
       <PageHeader title="学生档案" subtitle="点学生查看待过关、默写记录、积分明细。" />
       <ClassTabs />
       <div className="no-print mb-3 flex flex-wrap items-center gap-2">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="h-8 w-40" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="w-48" />
         <Picker
           label="小组"
           value={groupId ? String(groupId) : ""}

@@ -43,7 +43,7 @@ export const checksWeb: WebModule = {
               byStudent.set(p.student.id, e)
             }
             return (
-              <section key={c.code} className="rounded-lg border bg-card p-4">
+              <section key={c.code} className="rounded-lg border bg-card p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <h2 className="font-semibold">{c.name} 待过关</h2>
                   <Badge variant={pending.length ? "destructive" : "secondary"}>{pending.length}</Badge>
@@ -80,7 +80,7 @@ export const checksWeb: WebModule = {
           })}
         </div>
 
-        <section className="rounded-lg border bg-card p-4">
+        <section className="rounded-lg border bg-card p-5">
           <h2 className="mb-3 font-semibold">今天的检查</h2>
           {data.todayChecks.length === 0 ? (
             <p className="text-sm text-muted-foreground">今天还没有登记检查。</p>
@@ -118,8 +118,8 @@ export const checksWeb: WebModule = {
         </p>
 
         {data.pending.length > 0 && (
-          <section className="rounded-lg border border-destructive/30 bg-card p-4">
-            <h2 className="mb-2 font-semibold">待过关</h2>
+          <section className="rounded-lg border border-destructive/30 bg-card p-5">
+            <h2 className="mb-3 font-semibold">待过关</h2>
             <ul className="space-y-1.5 text-sm">
               {data.pending.map((h) => (
                 <li key={h.resultId} className="flex items-center gap-3">
@@ -145,7 +145,7 @@ export const checksWeb: WebModule = {
         )}
 
         <section>
-          <h2 className="mb-2 font-semibold">最近的检查</h2>
+          <h2 className="mb-3 font-semibold">最近的检查</h2>
           {data.recentChecks.length === 0 ? (
             <p className="text-sm text-muted-foreground">还没有记录</p>
           ) : (

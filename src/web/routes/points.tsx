@@ -68,9 +68,9 @@ function PointsPage() {
       />
       <ClassTabs />
 
-      <section className="mb-6 rounded-lg border bg-card p-4">
-        <div className="no-print mb-3 flex flex-wrap items-center gap-2">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="h-8 w-36" />
+      <section className="mb-10 rounded-lg border bg-card p-6">
+        <div className="no-print mb-5 flex flex-wrap items-center gap-2">
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索姓名/学号" className="w-40" />
           {(groups.data ?? []).map((g) => (
             <Button key={g.id} size="sm" variant="outline" onClick={() => toggle(g.members.map((m) => m.id))}>
               {g.name}组
@@ -98,14 +98,14 @@ function PointsPage() {
             visible.length === 0 ? (
               <Empty>没有学生。先到「数据与设置」导入名册。</Empty>
             ) : (
-              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 lg:grid-cols-8">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-8">
                 {visible.map((s) => (
                   <button
                     type="button"
                     key={s.id}
                     onClick={() => toggle([s.id])}
                     className={cn(
-                      "rounded-md border px-2 py-1.5 text-left text-sm transition-colors",
+                      "rounded-md border px-3 py-2 text-left text-sm transition-colors",
                       selected.has(s.id) ? "border-brand bg-accent font-medium" : "bg-background hover:bg-muted",
                     )}
                   >
@@ -121,7 +121,7 @@ function PointsPage() {
           }
         </QueryState>
 
-        <div className="no-print mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+        <div className="no-print mt-6 flex flex-wrap items-center gap-3 border-t pt-6">
           <div className="inline-flex rounded-md border p-0.5 text-sm">
             {[1, 2, 3].map((n) => (
               <button
@@ -142,7 +142,7 @@ function PointsPage() {
             onChange={(e) => setReason(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void submit()}
             placeholder="扣分原因（必填）"
-            className="h-8 w-56"
+            className="w-56"
           />
           <Button
             size="sm"
@@ -162,7 +162,7 @@ function PointsPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-10 lg:grid-cols-2">
         <section>
           <div className="mb-2 flex items-center gap-2">
             <h2 className="font-semibold">积分榜</h2>
@@ -231,7 +231,7 @@ function PointsPage() {
         </section>
 
         <section>
-          <h2 className="mb-2 font-semibold">最近明细</h2>
+          <h2 className="mb-3 font-semibold">最近明细</h2>
           <QueryState query={log}>
             {(rows) =>
               rows.length === 0 ? (

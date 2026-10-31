@@ -1,10 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { type FormEvent, useState } from "react"
+import { cn } from "cn"
+import { type FormEvent, type ReactNode, useState } from "react"
 import { z } from "zod"
 import { type ExamType, examTypes } from "@/modules/exams/shared"
 import { fmt, pct, today } from "@/shared/format"
 import { ClassTabs, Empty, PageHeader, QueryState } from "@/web/components/common"
 import { Button } from "@/web/components/ui/button"
+import { Checkbox } from "@/web/components/ui/checkbox"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/web/components/ui/dialog"
 import { Input } from "@/web/components/ui/input"
 import { Label } from "@/web/components/ui/label"
@@ -157,23 +159,25 @@ function NewExamDialog(props: {
         <DialogHeader>
           <DialogTitle>新建考试</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="flex flex-wrap gap-1.5">
-            {(Object.keys(examTypes) as ExamType[]).map((k) => (
-              <Button
-                key={k}
-                type="button"
-                size="sm"
-                variant={type === k ? "default" : "outline"}
-                onClick={() => setType(k)}
-              >
-                {examTypes[k]}
-              </Button>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1.5">
-              <Label htmlFor="title">名称</Label>
+        <form onSubmit={submit} className="space-y-6">
+          <Field label="类型">
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(examTypes) as ExamType[]).map((k) => (
+                <Button
+                  key={k}
+                  type="button"
+                  size="sm"
+                  variant={type === k ? "default" : "outline"}
+                  onClick={() => setType(k)}
+                >
+                  {examTypes[k]}
+                </Button>
+              ))}
+            </div>
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
+            <Field label="名称" htmlFor="title">
               <Input
                 id="title"
                 value={title}
@@ -182,58 +186,57 @@ function NewExamDialog(props: {
                 required
                 autoFocus
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="date">日期（可空）</Label>
+            </Field>
+            <Field label="日期（可空）" htmlFor="date">
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
+            </Field>
           </div>
 
           {classes.length > 1 && (
-            <div className="space-y-1.5">
-              <div className="text-sm font-medium">班级（同一张卷子可以多选，之后能做班级对比）</div>
-              <div className="flex flex-wrap gap-3 text-sm">
+            <Field label="班级" hint="同一张卷子可以多选，之后能做班级对比">
+              <div className="flex flex-wrap gap-5 text-sm">
                 {classes.map((c) => (
-                  <label key={c.code} className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
+                  <Label key={c.code} className="font-normal">
+                    <Checkbox
                       checked={classList.includes(c.code)}
-                      onChange={(e) =>
-                        setPicked((xs) =>
-                          e.target.checked ? [...new Set([...xs, c.code])] : xs.filter((x) => x !== c.code),
-                        )
+                      onCheckedChange={(on) =>
+                        setPicked((xs) => (on ? [...new Set([...xs, c.code])] : xs.filter((x) => x !== c.code)))
                       }
                     />
                     {c.name}
-                  </label>
+                  </Label>
                 ))}
               </div>
-            </div>
+            </Field>
           )}
 
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-sm font-medium">科目</span>
-              {presets.map((p) => (
-                <Button
-                  key={p.label}
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => setSubjects(p.subjects.map((x) => draftOf(x.name, x.full)))}
-                >
-                  {p.label}
-                </Button>
-              ))}
-            </div>
-            <div className="space-y-1.5">
+          <Field
+            label="科目"
+            extra={
+              <div className="flex flex-wrap gap-1.5">
+                {presets.map((p) => (
+                  <Button
+                    key={p.label}
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    className="text-muted-foreground"
+                    onClick={() => setSubjects(p.subjects.map((x) => draftOf(x.name, x.full)))}
+                  >
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+            }
+          >
+            <div className="space-y-2.5">
               {subjects.map((s, i) => (
-                <div key={s.uid} className="flex items-center gap-2 text-sm">
+                <div key={s.uid} className="flex items-center gap-3 text-sm">
                   <Input
                     value={s.name}
                     onChange={(e) => setSubject(i, { name: e.target.value })}
                     placeholder="科目"
-                    className="h-8 w-28"
+                    className="flex-1"
                     aria-label="科目"
                   />
                   <span className="text-muted-foreground">满分</span>
@@ -241,41 +244,40 @@ function NewExamDialog(props: {
                     value={s.full}
                     inputMode="decimal"
                     onChange={(e) => setSubject(i, { full: e.target.value })}
-                    className="h-8 w-16"
+                    className="w-20 tabular-nums"
                     aria-label="满分"
                   />
-                  <label className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={s.inTotal}
-                      onChange={(e) => setSubject(i, { inTotal: e.target.checked })}
-                    />
+                  <Label className="font-normal whitespace-nowrap">
+                    <Checkbox checked={s.inTotal} onCheckedChange={(on) => setSubject(i, { inTotal: on === true })} />
                     计入总分
-                  </label>
-                  {subjects.length > 1 && (
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => setSubjects((xs) => xs.filter((_, j) => j !== i))}
-                    >
-                      ✕
-                    </Button>
-                  )}
+                  </Label>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className={cn("text-muted-foreground", subjects.length === 1 && "invisible")}
+                    aria-label="删除这一科"
+                    onClick={() => setSubjects((xs) => xs.filter((_, j) => j !== i))}
+                  >
+                    ✕
+                  </Button>
                 </div>
               ))}
               <Button
                 type="button"
-                size="xs"
+                size="sm"
                 variant="outline"
                 onClick={() => setSubjects((xs) => [...xs, draftOf("", "100")])}
               >
                 + 加一科
               </Button>
             </div>
-          </div>
+          </Field>
 
           <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => props.onOpenChange(false)}>
+              取消
+            </Button>
             <Button type="submit" disabled={create.isPending || classList.length === 0}>
               创建并开始录入
             </Button>
@@ -283,5 +285,33 @@ function NewExamDialog(props: {
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** 表单里的一项：标题（可带说明、右侧附加内容）+ 内容 */
+function Field({
+  label,
+  htmlFor,
+  hint,
+  extra,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  hint?: string
+  extra?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Label htmlFor={htmlFor} className="text-sm font-medium">
+          {label}
+        </Label>
+        {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+        {extra && <div className="ml-auto">{extra}</div>}
+      </div>
+      {children}
+    </div>
   )
 }
