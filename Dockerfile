@@ -7,6 +7,8 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS build
+# better-sqlite3 优先下载预编译包；下载失败（例如网络慢）时会现场编译，需要这些工具。只装在构建阶段，不进最终镜像
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 COPY . .
