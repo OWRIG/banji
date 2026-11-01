@@ -25,6 +25,11 @@ const envSchema = z
     // 登录功能：上线运行时这两项必须设置（见 .env.example），开发时可以不设
     BETTER_AUTH_SECRET: z.string().min(32, "至少 32 个字符").optional(),
     BETTER_AUTH_URL: z.url().optional(),
+    // 前面有反向代理（云端部署的 Caddy）时设为 true：从 X-Forwarded-For 读访问者 IP，登录限流才能按人计算
+    TRUST_PROXY: z
+      .enum(["true", "false", "1", "0", ""])
+      .default("")
+      .transform((v) => v === "true" || v === "1"),
     // 额外允许的访问地址（逗号分隔），例如本地部署时手机用的 http://192.168.1.20:3000
     TRUSTED_ORIGINS: z
       .string()

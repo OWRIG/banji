@@ -19,6 +19,8 @@ export const auth = betterAuth({
     // 本地部署时手机用局域网地址或 Tailscale 地址访问，在这里补充（逗号分隔）
     ...env.TRUSTED_ORIGINS,
   ],
+  // 云端部署时请求经过 Caddy 转发，访问者 IP 在 X-Forwarded-For 里（只在确实有代理时信任这个头，否则可以被伪造）
+  advanced: env.TRUST_PROXY ? { ipAddress: { ipAddressHeaders: ["x-forwarded-for"] } } : undefined,
   databaseHooks: {
     user: {
       create: {

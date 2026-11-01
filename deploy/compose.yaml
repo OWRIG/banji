@@ -9,6 +9,8 @@ services:
     env_file: .env
     environment:
       BETTER_AUTH_URL: https://${DOMAIN:?请在 .env 里设置 DOMAIN}
+      # 请求都经过 caddy 转发，访问者 IP 从 X-Forwarded-For 读取
+      TRUST_PROXY: "true"
     volumes:
       # 数据库和每日备份都在 deploy/data 里，升级镜像不会丢
       - ./data:/app/data
