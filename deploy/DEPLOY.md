@@ -4,6 +4,14 @@
 
 部署结果：`https://<域名>` 可以打开工作台网页；`https://<域名>/mcp` 是给 agent 用的 MCP 入口。数据在服务器的 `deploy/data/` 目录里，每天自动备份。
 
+## 已有实例：发布新版本
+
+优先使用项目的 [deploy-cloud 技能](../.agents/skills/deploy-cloud/SKILL.md)。它复用本机实例配置，生成固定提交版本的任务，完成构建、切换前备份、只更新 app、线上验收及兼容情况下的镜像回退。SSH 不通时使用腾讯云执行命令。
+
+采用该流程后，新源码位于 `release_root/<完整提交 SHA>/source`，原 `deploy/` 保留生产配置和持久数据。线上版本以容器的 `org.opencontainers.image.revision` 标签为准，不要从原源码目录直接 `--build` 覆盖当前发布。
+
+下文用于首次部署、迁移，以及尚未采用固定版本流程的实例。
+
 ## 0. 先向老师确认
 
 - 服务器的登录方式（SSH 地址、用户名），以及有没有 sudo 权限。
@@ -96,7 +104,7 @@ docker compose exec app banji backups    # 能看到备份文件
 
 | 事情 | 命令（在 deploy/ 目录下） |
 |---|---|
-| 升级到新版本 | `git pull && docker compose up -d --build`（启动时会先自动备份，再升级数据库结构） |
+| 升级到新版本 | 按 `deploy-cloud` 技能发布固定提交；数据库结构变更走迁移流程 |
 | 查看日志 | `docker compose logs -f app` |
 | 忘记密码 | `docker compose exec app banji auth reset-password <邮箱> <新密码>` |
 | 查看操作记录 | `docker compose exec app banji history` |

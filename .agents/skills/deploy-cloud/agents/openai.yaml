@@ -1,0 +1,4 @@
+interface:
+  display_name: "发布班级工作台"
+  short_description: "复用线上实例，完成固定版本发布、数据备份、线上验收和失败回退"
+  default_prompt: "使用 $deploy-cloud 将班级工作台本次改动提交并发布到现有线上实例。"
