@@ -6,19 +6,19 @@ import { useCurrentClass } from "@/web/lib/class"
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end gap-3 border-b pb-6">
-      <div className="min-w-0 flex-1">
+    <div className="mb-3 flex flex-wrap items-end gap-2.5 border-b pb-2.5">
+      <div className="min-w-0 basis-full sm:flex-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {subtitle && <p className="mt-1.5 text-sm text-muted-foreground">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="no-print flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="no-print flex flex-wrap gap-1.5">{actions}</div>}
     </div>
   )
 }
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+    <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
       {children}
     </div>
   )
@@ -50,13 +50,13 @@ export function ClassTabs({
   }
   if (classes.length < 2 && !allowAll) return null
   return (
-    <div className="no-print mb-6 inline-flex rounded-md border bg-card p-0.5 text-sm">
+    <div className="no-print mb-3 inline-flex rounded-md border bg-card p-0.5 text-sm">
       {allowAll && (
         <button
           type="button"
           onClick={() => pick(null)}
           className={cn(
-            "rounded px-3 py-1 text-muted-foreground transition-colors hover:text-foreground",
+            "rounded px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground md:px-2.5 md:py-0.5",
             selected === null && "bg-muted font-medium text-foreground",
           )}
         >
@@ -69,7 +69,7 @@ export function ClassTabs({
           type="button"
           onClick={() => pick(c.code)}
           className={cn(
-            "rounded px-3 py-1 text-muted-foreground transition-colors hover:text-foreground",
+            "rounded px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground md:px-2.5 md:py-0.5",
             selected === c.code && "bg-muted font-medium text-foreground",
           )}
         >
@@ -82,18 +82,18 @@ export function ClassTabs({
 
 export function Stat({ label, value, tone }: { label: string; value: ReactNode; tone?: "good" | "bad" | "brand" }) {
   return (
-    <div className="rounded-md border bg-card px-4 py-3">
-      <div className="font-mono text-[11px] tracking-wide text-muted-foreground">{label}</div>
-      <div
+    <div className="inline-flex items-baseline gap-2 rounded-md border bg-card px-2.5 py-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span
         className={cn(
-          "mt-1 text-2xl font-semibold tracking-tight tabular-nums",
+          "text-base font-semibold tracking-tight tabular-nums",
           tone === "good" && "text-success",
           tone === "bad" && "text-destructive",
           tone === "brand" && "text-brand",
         )}
       >
         {value}
-      </div>
+      </span>
     </div>
   )
 }

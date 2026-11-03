@@ -3,6 +3,7 @@ import { cn } from "cn"
 import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
 import { Button } from "@/web/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
 import { useOp } from "@/web/lib/ops"
 import type { WebModule } from "@/web/modules"
 import { type ScoreStatus, scoreLevel, scoreStatuses } from "./shared"
@@ -19,7 +20,7 @@ export const examsWeb: WebModule = {
     const modules = useOp("modules.list", {})
     if (!modules.data?.find((m) => m.id === "exams")?.enabled) return null
     return (
-      <Button asChild variant="outline">
+      <Button asChild size="sm" variant="outline">
         <Link to="/exams" search={{ new: true }}>
           登记成绩
         </Link>
@@ -33,13 +34,13 @@ export const examsWeb: WebModule = {
     const taken = history.filter((h) => h.score != null)
     return (
       <section>
-        <h2 className="mb-3 font-semibold">考试成绩</h2>
+        <h2 className="mb-2 font-semibold">考试成绩</h2>
         {history.length === 0 ? (
           <p className="text-sm text-muted-foreground">还没有考试成绩</p>
         ) : (
           <>
             {taken.length >= 2 && (
-              <div className="mb-3 grid gap-3 sm:grid-cols-2">
+              <div className="mb-2.5 grid gap-2.5 sm:grid-cols-2">
                 <TrendChart
                   title="得分率"
                   points={taken.map((h) => ({
@@ -73,33 +74,33 @@ export const examsWeb: WebModule = {
 function HistoryTable({ history }: { history: History }) {
   const rows = [...history].reverse()
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-sm tabular-nums">
-        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 font-medium">考试</th>
-            <th className="px-3 py-2 font-medium">各科</th>
-            <th className="px-3 py-2 text-right font-medium">成绩</th>
-            <th className="px-3 py-2 text-right font-medium" title="得分率和上一场相比变化了多少个百分点">
+    <div className="rounded-md border bg-card">
+      <Table className="min-w-[34rem] tabular-nums">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="min-w-48">考试</TableHead>
+            <TableHead className="min-w-40">各科</TableHead>
+            <TableHead className="w-28 text-right">成绩</TableHead>
+            <TableHead className="w-28 text-right" title="得分率和上一场相比变化了多少个百分点">
               得分率变化
-            </th>
-            <th className="px-3 py-2 text-right font-medium">班排</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead className="w-20 text-right">班排</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {rows.map((h, i) => {
             // 和上一场比得分率变化（不同满分也可比）
             const prev = rows.slice(i + 1).find((x) => x.rate != null)
             const delta = h.rate != null && prev?.rate != null ? (h.rate - prev.rate) * 100 : null
             return (
-              <tr key={h.examId} className="border-t">
-                <td className="px-3 py-1.5">
+              <TableRow key={h.examId}>
+                <TableCell className="whitespace-normal">
                   <Link to="/exams/$id" params={{ id: String(h.examId) }} className="font-medium hover:underline">
                     {h.title}
                   </Link>
-                  <span className="ml-2 text-xs text-muted-foreground">{h.date ?? ""}</span>
-                </td>
-                <td className="px-3 py-1.5 text-xs text-muted-foreground">
+                  <span className="ml-2 text-xs text-muted-foreground tabular-nums">{h.date ?? ""}</span>
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground whitespace-normal">
                   {h.subjects.length > 1 &&
                     h.subjects
                       .map(
@@ -107,31 +108,31 @@ function HistoryTable({ history }: { history: History }) {
                           `${s.name} ${s.status ? (scoreStatuses[s.status as ScoreStatus] ?? s.status) : fmt(s.score)}`,
                       )
                       .join(" · ")}
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   className={cn(
-                    "px-3 py-1.5 text-right font-medium",
+                    "text-right font-medium",
                     scoreLevel(h.score, h.full) === "low" && "text-destructive",
                     scoreLevel(h.score, h.full) === "high" && "text-success",
                   )}
                 >
                   {h.score == null ? "—" : `${fmt(h.score)} / ${fmt(h.full)}`}
-                </td>
-                <td
+                </TableCell>
+                <TableCell
                   className={cn(
-                    "px-3 py-1.5 text-right",
+                    "text-right",
                     delta != null && delta > 0 && "text-success",
                     delta != null && delta < 0 && "text-destructive",
                   )}
                 >
                   {delta == null ? "" : `${delta > 0 ? "↑" : delta < 0 ? "↓" : ""}${fmt(Math.abs(delta))}`}
-                </td>
-                <td className="px-3 py-1.5 text-right">{h.rank ?? ""}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="text-right">{h.rank ?? ""}</TableCell>
+              </TableRow>
             )
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }

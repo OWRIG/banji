@@ -16,14 +16,14 @@ function TodayPage() {
         const lastBackup = data.sections.system?.lastBackup ?? null
         const days = lastBackup ? (Date.now() - new Date(lastBackup.createdAt).getTime()) / 86_400_000 : null
         return (
-          <div className="space-y-10">
+          <div className="space-y-6">
             <PageHeader
               title="今日"
               subtitle={`${data.date} 星期${weekday[new Date(`${data.date}T00:00`).getDay()]}`}
               actions={
                 <>
                   {webModules.map((m) => m.HomeActions && <m.HomeActions key={m.id} />)}
-                  <Button asChild variant="outline">
+                  <Button asChild size="sm" variant="outline">
                     <Link to="/points">扣分</Link>
                   </Button>
                 </>
@@ -44,7 +44,7 @@ function TodayPage() {
             {webModules.map((m) => m.HomeCard && <m.HomeCard key={m.id} brief={data} />)}
 
             <section
-              className={`rounded-lg border p-4 text-sm ${days == null || days > 7 ? "border-destructive/40 bg-destructive/5" : "bg-card"}`}
+              className={`rounded-md border px-3.5 py-2.5 text-sm ${days == null || days > 7 ? "border-destructive/40 bg-destructive/5" : "bg-card"}`}
             >
               <span className="font-medium">数据备份：</span>
               {lastBackup

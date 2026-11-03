@@ -21,6 +21,11 @@ function PendingPage() {
   const list = useOp("pending.list", { class: search.class })
   const clear = useOpMutation("pending.clear")
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [prevClass, setPrevClass] = useState(search.class)
+  if (prevClass !== search.class) {
+    setPrevClass(search.class)
+    setSelected(new Set())
+  }
 
   function toggle(id: number) {
     setSelected((s) => {
@@ -32,8 +37,12 @@ function PendingPage() {
   }
 
   async function clearIds(ids: number[]) {
-    await clear.mutateAsync({ resultIds: ids })
-    setSelected(new Set())
+    try {
+      await clear.mutateAsync({ resultIds: ids })
+      setSelected(new Set())
+    } catch {
+      // useOpMutation.onError 已提示
+    }
   }
 
   return (
@@ -44,9 +53,12 @@ function PendingPage() {
         actions={
           <>
             {selected.size > 0 && (
-              <Button onClick={() => clearIds([...selected])}>选中的 {selected.size} 条已过关</Button>
+              <Button size="sm" onClick={() => clearIds([...selected])}>
+                选中的 {selected.size} 条已过关
+              </Button>
             )}
             <Button
+              size="sm"
               variant="outline"
               onClick={() =>
                 list.data &&
@@ -65,7 +77,7 @@ function PendingPage() {
             >
               导出 CSV
             </Button>
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
               打印
             </Button>
           </>
@@ -91,25 +103,29 @@ function PendingPage() {
             groups.set(p.student.id, g)
           }
           return (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">
                 共 {groups.size} 人、{items.length} 条
               </p>
               {[...groups.entries()].map(([sid, g]) => (
-                <div key={sid} className="flex flex-wrap items-start gap-3 rounded-lg border bg-card px-4 py-3">
+                <div key={sid} className="flex flex-wrap items-center gap-2.5 rounded-md border bg-card px-3 py-2">
                   <div className="w-28 shrink-0">
-                    <Link to="/students/$id" params={{ id: String(sid) }} className="font-medium hover:underline">
+                    <Link
+                      to="/students/$id"
+                      params={{ id: String(sid) }}
+                      className="text-sm font-medium hover:underline"
+                    >
                       {g.name}
                     </Link>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-muted-foreground tabular-nums">
                       {search.class ? g.studentNo : `${g.className} · ${g.studentNo}`}
                     </div>
                   </div>
-                  <div className="flex flex-1 flex-wrap gap-2">
+                  <div className="flex flex-1 flex-wrap gap-1.5">
                     {g.items.map((p) => (
                       <div
                         key={p.resultId}
-                        className="flex items-center gap-2 rounded-md border bg-background px-2 py-1 text-sm"
+                        className="flex items-center gap-1.5 rounded border bg-background px-2 py-0.5 text-sm"
                       >
                         <Checkbox
                           aria-label={`选择 ${p.check.title}`}
@@ -117,14 +133,20 @@ function PendingPage() {
                           checked={selected.has(p.resultId)}
                           onCheckedChange={() => toggle(p.resultId)}
                         />
-                        <span>{p.check.title}</span>
-                        <Badge variant="destructive">{p.score != null ? fmt(p.score) : marks[p.mark as Mark]}</Badge>
-                        {p.check.date && <span className="text-xs text-muted-foreground">{p.check.date.slice(5)}</span>}
+                        <Link to="/checks/$id" params={{ id: String(p.check.id) }} className="hover:underline">
+                          {p.check.title}
+                        </Link>
+                        <Badge variant="destructive" className="tabular-nums">
+                          {p.score != null ? fmt(p.score) : marks[p.mark as Mark]}
+                        </Badge>
+                        {p.check.date && (
+                          <span className="text-xs text-muted-foreground tabular-nums">{p.check.date.slice(5)}</span>
+                        )}
                       </div>
                     ))}
                   </div>
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="outline"
                     className="no-print"
                     onClick={() => clearIds(g.items.map((p) => p.resultId))}

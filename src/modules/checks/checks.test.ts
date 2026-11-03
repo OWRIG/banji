@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest"
+import { defaultMode, isReciteDone, reciteTickValue } from "@/modules/checks/shared"
 import { OpError, runOp } from "@/server/core/define"
 import { initModules, ops } from "@/server/registry"
 
@@ -164,8 +165,64 @@ describe("默写 → 待过关 → 销账", () => {
 })
 
 describe("背书", () => {
-  it("默认分等级：全背自动 +1，其他等级不加分，也不进待过关", async () => {
+  it("共享口径：defaultMode / reciteTickValue / isReciteDone 覆盖 mark 与历史 level", () => {
+    expect(defaultMode("recite")).toBe("mark")
+    expect(defaultMode("dictation")).toBe("score")
+    expect(reciteTickValue("mark")).toBe("过")
+    expect(reciteTickValue("level")).toBe("全背")
+
+    // mark 模式下：过 / 二次过 为已完成，未过 / 请假 / 免 / 空 为未完成
+    expect(isReciteDone("mark", { score: null, mark: "pass" })).toBe(true)
+    expect(isReciteDone("mark", { score: null, mark: "pass_retry" })).toBe(true)
+    expect(isReciteDone("mark", { score: null, mark: "fail" })).toBe(false)
+    expect(isReciteDone("mark", { score: null, mark: "leave" })).toBe(false)
+    expect(isReciteDone("mark", { score: null, mark: "exempt" })).toBe(false)
+    expect(isReciteDone("mark", null)).toBe(false)
+
+    // 历史 level 模式下：仅全背为已完成，抄书 / 读书 / 背部分 / 请假 / 免 为未完成
+    expect(isReciteDone("level", { score: null, mark: "full" })).toBe(true)
+    expect(isReciteDone("level", { score: null, mark: "partial" })).toBe(false)
+    expect(isReciteDone("level", { score: null, mark: "read" })).toBe(false)
+    expect(isReciteDone("level", { score: null, mark: "copy" })).toBe(false)
+    expect(isReciteDone("level", { score: null, mark: "leave" })).toBe(false)
+    expect(isReciteDone("level", { score: null, mark: "exempt" })).toBe(false)
+  })
+
+  it("新建背书默认快速标记（mark）：勾选写入「过」自动 +1，取消清除后可撤销恢复结果与积分", async () => {
     const c = await runOp(ops["checks.create"], { class: "705", kind: "recite", title: "U3 课文背诵" }, as)
+    expect(c.data.mode).toBe("mark")
+    expect(c.data.requirePass).toBe(false)
+    const before = await totalPoints("赵四")
+
+    // 勾选「过」加分，重复登记幂等不重复加分
+    await runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: "过" }] }, as)
+    expect(await totalPoints("赵四")).toBe(before + 1)
+    await runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: "过" }] }, as)
+    expect(await totalPoints("赵四")).toBe(before + 1)
+
+    // 取消勾选清除记录并回收自动积分
+    const cleared = await runOp(
+      ops["checks.record"],
+      { check: c.data.id, results: [{ student: "赵四", value: "" }] },
+      as,
+    )
+    expect(await totalPoints("赵四")).toBe(before)
+    const detail = await runOp(ops["checks.get"], { check: c.data.id }, as)
+    expect(detail.data.rows.find((r) => r.student.name === "赵四")?.result).toBeNull()
+
+    // 撤销取消操作：恢复「过」和自动积分
+    await runOp(ops.undo, { changesetId: cleared.changesetId ?? undefined }, as)
+    expect(await totalPoints("赵四")).toBe(before + 1)
+    const restored = await runOp(ops["checks.get"], { check: c.data.id }, as)
+    expect(restored.data.rows.find((r) => r.student.name === "赵四")?.result?.mark).toBe("pass")
+  })
+
+  it("显式选择分等级（level）：全背自动 +1，其他等级不加分，取消勾选回收加分", async () => {
+    const c = await runOp(
+      ops["checks.create"],
+      { class: "705", kind: "recite", title: "U3 分级背诵", mode: "level" },
+      as,
+    )
     expect(c.data.mode).toBe("level")
     expect(c.data.requirePass).toBe(false)
     const before = await totalPoints("赵四")
@@ -189,6 +246,12 @@ describe("背书", () => {
     const pending = await runOp(ops["pending.list"], { class: "705" }, as)
     expect(pending.data.filter((p) => p.check.id === c.data.id)).toHaveLength(0)
 
+    // 重复登记全背幂等，清除后回收积分
+    await runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: "全背" }] }, as)
+    expect(await totalPoints("赵四")).toBe(before + 1)
+    await runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: null }] }, as)
+    expect(await totalPoints("赵四")).toBe(before)
+
     // 分等级不能填分数，也不能填「过」
     await expect(
       runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: 90 }] }, as),
@@ -198,10 +261,10 @@ describe("背书", () => {
     ).rejects.toThrow(/抄书/)
   })
 
-  it("判定过关时，没到全背的进待过关", async () => {
+  it("判定过关时，分等级没到全背的进待过关", async () => {
     const c = await runOp(
       ops["checks.create"],
-      { class: "705", kind: "recite", title: "U4 课文背诵", requirePass: true },
+      { class: "705", kind: "recite", title: "U4 课文背诵", mode: "level", requirePass: true },
       as,
     )
     await runOp(
@@ -245,6 +308,62 @@ describe("背书", () => {
     await expect(
       runOp(ops["checks.record"], { check: c.data.id, results: [{ student: "赵四", value: 90 }] }, as),
     ).rejects.toThrow(/快速标记/)
+  })
+})
+
+describe("批量新建检查（checks.createBatch）", () => {
+  it("一次给多个班创建同标题检查，重复引用去重，一次撤销全部消失", async () => {
+    const clsList = (await runOp(ops["classes.list"], {}, as)).data
+    const c705 = clsList.find((c) => c.code === "705")
+    if (!c705) throw new Error("缺少 705 班")
+
+    const batch = await runOp(
+      ops["checks.createBatch"],
+      {
+        classes: ["705", "七5班", c705.id, "707"],
+        kind: "recite",
+        title: "U6 多班背诵",
+        date: "2026-11-10",
+        requirePass: true,
+      },
+      as,
+    )
+    expect(batch.data).toHaveLength(2)
+    expect(batch.data.map((c) => [c.classCode, c.className, c.mode, c.requirePass])).toEqual([
+      ["705", "七5班", "mark", true],
+      ["707", "七7班", "mark", true],
+    ])
+    expect(batch.summary).toContain("七5班、七7班")
+
+    // 两个班列表里都能查到
+    const list705 = (await runOp(ops["checks.list"], { class: "705" }, as)).data
+    const list707 = (await runOp(ops["checks.list"], { class: "707" }, as)).data
+    expect(list705.some((c) => c.title === "U6 多班背诵")).toBe(true)
+    expect(list707.some((c) => c.title === "U6 多班背诵")).toBe(true)
+
+    // 一次撤销，两班的这场检查全部移除
+    await runOp(ops.undo, { changesetId: batch.changesetId ?? undefined }, as)
+    const after705 = (await runOp(ops["checks.list"], { class: "705" }, as)).data
+    const after707 = (await runOp(ops["checks.list"], { class: "707" }, as)).data
+    expect(after705.some((c) => c.title === "U6 多班背诵")).toBe(false)
+    expect(after707.some((c) => c.title === "U6 多班背诵")).toBe(false)
+  })
+
+  it("空数组、非法参数或任一班级找不到时整体拒绝，不落库", async () => {
+    const beforeCount = (await runOp(ops["checks.list"], {}, as)).data.length
+    await expect(runOp(ops["checks.createBatch"], { classes: [], title: "空班级测试" }, as)).rejects.toThrow()
+    await expect(runOp(ops["checks.createBatch"], { classes: ["705"], title: "   " }, as)).rejects.toThrow()
+    await expect(
+      runOp(ops["checks.createBatch"], { classes: ["705"], title: "非法日期", date: "2026/11/10" }, as),
+    ).rejects.toThrow()
+
+    await expect(
+      runOp(ops["checks.createBatch"], { classes: ["705", "不存在的班"], title: "原子性测试" }, as),
+    ).rejects.toThrow(/找不到/)
+
+    const afterList = (await runOp(ops["checks.list"], {}, as)).data
+    expect(afterList.length).toBe(beforeCount)
+    expect(afterList.some((c) => c.title === "原子性测试")).toBe(false)
   })
 })
 

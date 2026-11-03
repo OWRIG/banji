@@ -116,7 +116,7 @@ agent 用起来顺手的关键是：**数量少、粒度粗、接受姓名、批
 | 名册 | `students.resolve`（姓名/学号/模糊匹配 → 学生；同名时返回候选列表） | read |
 | | `students.list` / `students.profile`（单人汇总：待过关、积分、成绩趋势、记录） | read |
 | | `roster.import`（规整好的 JSON 名单，先 preview 再 apply） | danger |
-| 检查 | `checks.create` / `checks.list` / `checks.get` | write / read |
+| 检查 | `checks.create` / `checks.createBatch`（多班批量创建） / `checks.list` / `checks.get` | write / read |
 | | `checks.record`（批量：`[{student:"李明", score:95}, {student:"王芳", mark:"请假"}]`） | write |
 | | `pending.list`（待过关池，可按班、学生、天数筛选） | read |
 | | `pending.clear`（销账，可批量） | write |
@@ -344,7 +344,7 @@ deploy/
 
 **P1 进展（2026-11-01）**
 
-- 检查默认不判定过关（可在新建时或单场检查里开启）；背书默认分等级：抄书、读书、背部分、全背，全背自动 +1。
+- 检查默认不判定过关（可在新建时或单场检查里开启）；背书默认快速标记（勾选记为“过”，自动 +1），保留可选分等级（抄书、读书、背部分、全背，全背自动 +1）；支持多班批量新建检查（`checks.createBatch`）。
 - 积分简化：加分只走自动规则，老师手动只扣分并写原因。
 - notes 谈话记录模块：谈话/家访/观察，显示在学生档案里。
 - exams 考试成绩模块：多科、各科满分（数学 120）、是否计入总分；一次给几个班建同卷考试；回车流和多列粘贴录入；请假/缺考不计入统计；可导入班排/校排。

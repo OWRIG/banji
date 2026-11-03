@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { cn } from "cn"
-import { type FormEvent, type ReactNode, useState } from "react"
+import { type FormEvent, type ReactNode, useEffect, useState } from "react"
 import { z } from "zod"
 import { type ExamType, examTypes } from "@/modules/exams/shared"
 import { fmt, pct, today } from "@/shared/format"
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/exams/")({
 })
 
 function ExamsPage() {
-  const { current } = useCurrentClass()
+  const { current, setCode } = useCurrentClass()
   const search = Route.useSearch()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(!!search.new)
@@ -31,7 +31,11 @@ function ExamsPage() {
       <PageHeader
         title="考试成绩"
         subtitle="单元检测、月考、期中期末。录完成绩可以看统计、进退步、临界生和班级对比。"
-        actions={<Button onClick={() => setCreating(true)}>新建考试</Button>}
+        actions={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            新建考试
+          </Button>
+        }
       />
       <ClassTabs />
       <QueryState query={list}>
@@ -39,17 +43,17 @@ function ExamsPage() {
           rows.length === 0 ? (
             <Empty>还没有考试记录，点右上角「新建考试」。</Empty>
           ) : (
-            <div className="rounded-lg border bg-card">
-              <Table>
+            <div className="rounded-md border bg-card">
+              <Table className="min-w-[38rem]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>日期</TableHead>
-                    <TableHead>考试</TableHead>
-                    <TableHead>类型</TableHead>
-                    <TableHead>科目</TableHead>
-                    <TableHead className="text-right">已录</TableHead>
-                    <TableHead className="text-right">均分</TableHead>
-                    <TableHead className="text-right">及格率</TableHead>
+                    <TableHead className="w-28">日期</TableHead>
+                    <TableHead className="min-w-48">考试</TableHead>
+                    <TableHead className="w-24">类型</TableHead>
+                    <TableHead className="min-w-36">科目</TableHead>
+                    <TableHead className="w-20 text-right">已录</TableHead>
+                    <TableHead className="w-28 text-right">均分</TableHead>
+                    <TableHead className="w-24 text-right">及格率</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -60,12 +64,12 @@ function ExamsPage() {
                       onClick={() => navigate({ to: "/exams/$id", params: { id: String(e.id) } })}
                     >
                       <TableCell className="text-muted-foreground tabular-nums">{e.date ?? "—"}</TableCell>
-                      <TableCell className="font-medium">
-                        <Link to="/exams/$id" params={{ id: String(e.id) }}>
+                      <TableCell className="font-medium whitespace-normal">
+                        <Link to="/exams/$id" params={{ id: String(e.id) }} className="hover:underline">
                           {e.title}
                         </Link>
                       </TableCell>
-                      <TableCell>{examTypes[e.type as ExamType] ?? e.type}</TableCell>
+                      <TableCell className="text-muted-foreground">{examTypes[e.type as ExamType] ?? e.type}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {e.subjects.map((s) => s.name).join("、")}
                       </TableCell>
@@ -90,7 +94,10 @@ function ExamsPage() {
           open={creating}
           onOpenChange={setCreating}
           classCode={current.code}
-          onCreated={(id) => navigate({ to: "/exams/$id", params: { id: String(id) } })}
+          onCreated={(id, code) => {
+            if (code && code !== current.code) setCode(code)
+            navigate({ to: "/exams/$id", params: { id: String(id) } })
+          }}
         />
       )}
     </div>
@@ -119,7 +126,7 @@ function NewExamDialog(props: {
   open: boolean
   onOpenChange: (open: boolean) => void
   classCode: string
-  onCreated: (id: number) => void
+  onCreated: (id: number, classCode?: string) => void
 }) {
   const { classes } = useCurrentClass()
   const [type, setType] = useState<ExamType>("unit")
@@ -129,25 +136,37 @@ function NewExamDialog(props: {
     presets[0].subjects.map((x) => draftOf(x.name, x.full)),
   )
   const [picked, setPicked] = useState<string[]>([props.classCode])
-  const create = useOpMutation("exams.create", { silent: true })
+  const create = useOpMutation("exams.create")
+
+  useEffect(() => {
+    if (props.open) {
+      setPicked([props.classCode])
+    }
+  }, [props.open, props.classCode])
 
   const classList = picked
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    const out = await create.mutateAsync({
-      class: classList,
-      type,
-      title,
-      date: date || null,
-      subjects: subjects
-        .filter((s) => s.name.trim())
-        .map((s) => ({ name: s.name.trim(), full: Number(s.full) || 100, inTotal: s.inTotal })),
-    })
-    props.onOpenChange(false)
-    setTitle("")
-    const mine = out.data.find((x) => classes.find((c) => c.code === props.classCode)?.id === x.classId)
-    props.onCreated((mine ?? out.data[0]).id)
+    try {
+      const out = await create.mutateAsync({
+        class: classList,
+        type,
+        title,
+        date: date || null,
+        subjects: subjects
+          .filter((s) => s.name.trim())
+          .map((s) => ({ name: s.name.trim(), full: Number(s.full) || 100, inTotal: s.inTotal })),
+      })
+      props.onOpenChange(false)
+      setTitle("")
+      const mine = out.data.find((x) => classes.find((c) => c.code === props.classCode)?.id === x.classId)
+      const target = mine ?? out.data[0]
+      const targetCode = classes.find((c) => c.id === target.classId)?.code
+      props.onCreated(target.id, targetCode)
+    } catch {
+      // useOpMutation.onError 已提示
+    }
   }
 
   const setSubject = (i: number, patch: Partial<SubjectDraft>) =>
@@ -159,9 +178,9 @@ function NewExamDialog(props: {
         <DialogHeader>
           <DialogTitle>新建考试</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-6">
+        <form onSubmit={submit} className="space-y-4">
           <Field label="类型">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {(Object.keys(examTypes) as ExamType[]).map((k) => (
                 <Button
                   key={k}
@@ -176,7 +195,7 @@ function NewExamDialog(props: {
             </div>
           </Field>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
+          <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
             <Field label="名称" htmlFor="title">
               <Input
                 id="title"
@@ -192,23 +211,21 @@ function NewExamDialog(props: {
             </Field>
           </div>
 
-          {classes.length > 1 && (
-            <Field label="班级" hint="同一张卷子可以多选，之后能做班级对比">
-              <div className="flex flex-wrap gap-5 text-sm">
-                {classes.map((c) => (
-                  <Label key={c.code} className="font-normal">
-                    <Checkbox
-                      checked={classList.includes(c.code)}
-                      onCheckedChange={(on) =>
-                        setPicked((xs) => (on ? [...new Set([...xs, c.code])] : xs.filter((x) => x !== c.code)))
-                      }
-                    />
-                    {c.name}
-                  </Label>
-                ))}
-              </div>
-            </Field>
-          )}
+          <Field label="班级" hint={`已选 ${classList.length} 个班（同一张卷子可多选，之后能做班级对比）`}>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {classes.map((c) => (
+                <Label key={c.code} className="font-normal">
+                  <Checkbox
+                    checked={classList.includes(c.code)}
+                    onCheckedChange={(on) =>
+                      setPicked((xs) => (on ? [...new Set([...xs, c.code])] : xs.filter((x) => x !== c.code)))
+                    }
+                  />
+                  {c.name}
+                </Label>
+              ))}
+            </div>
+          </Field>
 
           <Field
             label="科目"
@@ -229,9 +246,9 @@ function NewExamDialog(props: {
               </div>
             }
           >
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {subjects.map((s, i) => (
-                <div key={s.uid} className="flex items-center gap-3 text-sm">
+                <div key={s.uid} className="flex items-center gap-2.5 text-sm">
                   <Input
                     value={s.name}
                     onChange={(e) => setSubject(i, { name: e.target.value })}
@@ -303,7 +320,7 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Label htmlFor={htmlFor} className="text-sm font-medium">
           {label}

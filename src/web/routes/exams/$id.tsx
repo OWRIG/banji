@@ -19,6 +19,7 @@ import { Empty, PageHeader, Picker, QueryState } from "@/web/components/common"
 import { useDangerOp } from "@/web/components/danger"
 import { Button } from "@/web/components/ui/button"
 import { Input } from "@/web/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
 import { downloadCsv } from "@/web/lib/csv"
 import { useOp, useOpMutation } from "@/web/lib/ops"
 
@@ -39,7 +40,7 @@ function ExamPage() {
       {(d) => (
         <div>
           <Header detail={d} />
-          <div className="no-print mb-4 inline-flex rounded-lg border bg-card p-0.5 text-sm">
+          <div className="no-print mb-3 inline-flex rounded-md border bg-card p-0.5 text-sm">
             {(["scores", "analysis"] as const).map((t) => (
               <Link
                 key={t}
@@ -47,7 +48,7 @@ function ExamPage() {
                 params={{ id }}
                 search={{ tab: t }}
                 className={cn(
-                  "rounded px-3 py-1 text-muted-foreground",
+                  "rounded px-3 py-1.5 text-muted-foreground md:px-2.5 md:py-0.5",
                   tab === t && "bg-muted font-medium text-foreground",
                 )}
               >
@@ -104,13 +105,13 @@ function Header({ detail }: { detail: Detail }) {
         }
         actions={
           <>
-            <Button variant="outline" onClick={exportCsv}>
+            <Button size="sm" variant="outline" onClick={exportCsv}>
               导出 CSV
             </Button>
-            <Button variant="outline" onClick={() => window.print()}>
+            <Button size="sm" variant="outline" onClick={() => window.print()}>
               打印
             </Button>
-            <Button variant="ghost" onClick={() => del.start({ exam: exam.id })}>
+            <Button size="sm" variant="ghost" onClick={() => del.start({ exam: exam.id })}>
               删除
             </Button>
           </>
@@ -142,6 +143,7 @@ function ScoreEditor({ detail }: { detail: Detail }) {
   const record = useOpMutation("exams.record", { silent: true })
   const recordLoud = useOpMutation("exams.record")
   const [draft, setDraft] = useState<Record<string, string>>({})
+  const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({})
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
   const saving = useRef<Record<string, string>>({})
   const key = (i: number, subject: string) => `${i}:${subject}`
@@ -149,18 +151,25 @@ function ScoreEditor({ detail }: { detail: Detail }) {
   async function save(i: number, subject: string, value: string) {
     const row = rows[i]
     const k = key(i, subject)
-    if (value === cellText(row.cells[subject]) || saving.current[k] === value) return
+    if (value === cellText(row.cells[subject]) || saving.current[k] !== undefined) return
     if (parseScoreValue(value) === null) {
       toast.error(`${row.student.name} ${subject}：看不懂「${value}」。可以填分数，或 请假/缺考`)
       return
     }
     saving.current[k] = value
+    setBusyKeys((b) => ({ ...b, [k]: true }))
     try {
       await record.mutateAsync({ exam: exam.id, results: [{ student: row.student.id, subject, value }] })
+      setDraft(({ [k]: _, ...rest }) => rest)
+    } catch {
+      // useOpMutation.onError 已提示，保留原草稿
     } finally {
       delete saving.current[k]
+      setBusyKeys((b) => {
+        const { [k]: _, ...rest } = b
+        return rest
+      })
     }
-    setDraft(({ [k]: _, ...rest }) => rest)
   }
 
   function focus(i: number, subject: string) {
@@ -172,8 +181,9 @@ function ScoreEditor({ detail }: { detail: Detail }) {
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>, i: number, subject: string) {
     if (e.key === "Enter" || e.key === "ArrowDown") {
       e.preventDefault()
-      void save(i, subject, e.currentTarget.value.trim())
+      const val = e.currentTarget.value.trim()
       focus(i + 1, subject)
+      void save(i, subject, val)
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       focus(i - 1, subject)
@@ -203,89 +213,101 @@ function ScoreEditor({ detail }: { detail: Detail }) {
       return
     }
     if (entries.length === 0) return
-    await recordLoud.mutateAsync({ exam: exam.id, results: entries })
-    setDraft({})
+    try {
+      await recordLoud.mutateAsync({ exam: exam.id, results: entries })
+      setDraft({})
+    } catch {
+      // useOpMutation.onError 已提示
+    }
   }
 
   return (
     <div>
-      <p className="no-print mb-3 text-xs text-muted-foreground">
+      <p className="no-print mb-2.5 text-xs text-muted-foreground">
         输入后按回车跳到下一位并自动保存；可以从 Excel
         复制一列或几列分数，粘贴到起始格。没来考的填「请假」或「缺考」，不计入统计。
         {hasTotal && " 总分自动相加，名次按本班总分计算（有导入的班排时用导入的）。"}
       </p>
-      <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-            <tr>
-              <th className="w-20 px-3 py-2 font-medium">学号</th>
-              <th className="px-3 py-2 font-medium">姓名</th>
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-20">学号</TableHead>
+              <TableHead className="w-28">姓名</TableHead>
               {exam.subjects.map((s) => (
-                <th key={s.name} className="px-2 py-2 font-medium">
+                <TableHead key={s.name} className="w-28">
                   {s.name}
                   <span className="font-normal">（{fmt(s.full)}）</span>
-                </th>
+                </TableHead>
               ))}
               {hasTotal && (
                 <>
-                  <th className="px-2 py-2 text-right font-medium">{TOTAL}</th>
-                  <th className="px-2 py-2 text-right font-medium">班排</th>
+                  <TableHead className="w-20 text-right">{TOTAL}</TableHead>
+                  <TableHead className="w-16 text-right">班排</TableHead>
                 </>
               )}
-              <th className="px-2 py-2 font-medium">备注</th>
-            </tr>
-          </thead>
-          <tbody>
+              <TableHead>备注</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((r, i) => (
-              <tr key={r.student.id} className="border-t">
-                <td className="px-3 py-1.5 text-muted-foreground tabular-nums">{r.student.studentNo}</td>
-                <td className="px-3 py-1.5 font-medium whitespace-nowrap">
+              <TableRow key={r.student.id}>
+                <TableCell className="py-1 text-muted-foreground tabular-nums">{r.student.studentNo}</TableCell>
+                <TableCell className="py-1 font-medium whitespace-nowrap">
                   <Link to="/students/$id" params={{ id: String(r.student.id) }} className="hover:underline">
                     {r.student.name}
                   </Link>
-                </td>
+                </TableCell>
                 {exam.subjects.map((s) => {
                   const k = key(i, s.name)
                   const cell = r.cells[s.name]
+                  const busy = !!busyKeys[k]
                   return (
-                    <td key={s.name} className="px-2 py-1">
+                    <TableCell key={s.name} className="py-1">
                       <Input
                         ref={(el) => {
                           inputs.current[k] = el
                         }}
                         value={draft[k] ?? cellText(cell)}
+                        disabled={busy}
                         inputMode="decimal"
                         aria-label={`${r.student.name} ${s.name}`}
-                        className={cn("h-8 w-18 tabular-nums", !(k in draft) && levelClass(cell?.score, s.full))}
+                        className={cn(
+                          "no-print h-9 w-20 tabular-nums md:h-7",
+                          !(k in draft) && levelClass(cell?.score, s.full),
+                        )}
                         onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
                         onKeyDown={(e) => onKeyDown(e, i, s.name)}
                         onBlur={(e) => void save(i, s.name, e.currentTarget.value.trim())}
                         onPaste={(e) => void onPaste(e, i, s.name)}
                         onFocus={(e) => e.currentTarget.select()}
                       />
-                    </td>
+                      <span className={cn("hidden tabular-nums print:inline", levelClass(cell?.score, s.full))}>
+                        {cellText(cell)}
+                      </span>
+                    </TableCell>
                   )
                 })}
                 {hasTotal && (
                   <>
-                    <td
+                    <TableCell
                       className={cn(
-                        "px-2 py-1.5 text-right font-medium tabular-nums",
+                        "py-1 text-right font-medium tabular-nums",
                         levelClass(r.cells[TOTAL]?.score, fullOf(exam.subjects, TOTAL)),
                       )}
                     >
                       {fmt(r.cells[TOTAL]?.score)}
-                    </td>
-                    <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                    </TableCell>
+                    <TableCell className="py-1 text-right text-muted-foreground tabular-nums">
                       {r.cells[TOTAL]?.classRank ?? ""}
-                    </td>
+                    </TableCell>
                   </>
                 )}
-                <td className="px-2 py-1.5 text-xs text-muted-foreground">{r.note}</td>
-              </tr>
+                <TableCell className="py-1 text-xs text-muted-foreground whitespace-normal">{r.note}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       <StatsTable stats={detail.stats} />
     </div>
@@ -294,35 +316,35 @@ function ScoreEditor({ detail }: { detail: Detail }) {
 
 function StatsTable({ stats }: { stats: Detail["stats"] }) {
   return (
-    <div className="mt-6 overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>
+    <div className="mt-4 rounded-md border bg-card">
+      <Table className="tabular-nums">
+        <TableHeader>
+          <TableRow>
             {["科目", "人数", "均分", "中位数", "最高", "最低", "及格率", "优秀率"].map((h, i) => (
-              <th key={h} className={cn("px-3 py-2 font-medium", i > 0 && "text-right")}>
+              <TableHead key={h} className={cn(i > 0 && "text-right")}>
                 {h}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody className="tabular-nums">
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {stats.map((s) => (
-            <tr key={s.subject} className="border-t">
-              <td className="px-3 py-1.5 font-medium">
+            <TableRow key={s.subject}>
+              <TableCell className="font-medium">
                 {s.subject}
                 <span className="text-xs font-normal text-muted-foreground">（{fmt(s.full)}）</span>
-              </td>
-              <td className="px-3 py-1.5 text-right">{s.count}</td>
-              <td className="px-3 py-1.5 text-right">{fmt(s.avg)}</td>
-              <td className="px-3 py-1.5 text-right">{fmt(s.median)}</td>
-              <td className="px-3 py-1.5 text-right">{fmt(s.max)}</td>
-              <td className="px-3 py-1.5 text-right">{fmt(s.min)}</td>
-              <td className="px-3 py-1.5 text-right">{pct(s.passRate)}</td>
-              <td className="px-3 py-1.5 text-right">{pct(s.excellentRate)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-right">{s.count}</TableCell>
+              <TableCell className="text-right">{fmt(s.avg)}</TableCell>
+              <TableCell className="text-right">{fmt(s.median)}</TableCell>
+              <TableCell className="text-right">{fmt(s.max)}</TableCell>
+              <TableCell className="text-right">{fmt(s.min)}</TableCell>
+              <TableCell className="text-right">{pct(s.passRate)}</TableCell>
+              <TableCell className="text-right">{pct(s.excellentRate)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -339,7 +361,7 @@ function Analysis({ detail }: { detail: Detail }) {
   const award = useOpMutation("exams.awardProgress")
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center gap-2 text-sm">
         <span className="text-muted-foreground">科目</span>
         <Picker
@@ -409,7 +431,7 @@ function Analysis({ detail }: { detail: Detail }) {
               {!a.progress ? (
                 <Empty>这个班在这场之前没有别的考试，暂时没法比较进退步。</Empty>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <ProgressList title="进步" rows={a.progress.improved} by={a.progress.by} tone="good" />
                   <ProgressList title="退步" rows={a.progress.declined} by={a.progress.by} tone="bad" />
                 </div>
@@ -417,12 +439,12 @@ function Analysis({ detail }: { detail: Detail }) {
             </section>
 
             <section>
-              <h2 className="mb-3 font-semibold">临界生</h2>
+              <h2 className="mb-2 font-semibold">临界生</h2>
               <p className="mb-2 text-xs text-muted-foreground">
                 离及格线（{fmt(a.borderline.passLine)}）、优秀线（{fmt(a.borderline.excellentLine)}）差满分 10%
                 以内的学生。
               </p>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <BorderList title="接近及格" rows={a.borderline.pass} />
                 <BorderList title="接近优秀" rows={a.borderline.excellent} />
               </div>
@@ -430,54 +452,54 @@ function Analysis({ detail }: { detail: Detail }) {
 
             {a.peers.length > 0 && (
               <section>
-                <h2 className="mb-3 font-semibold">同卷班级对比</h2>
-                <div className="overflow-x-auto rounded-lg border bg-card">
-                  <table className="w-full text-sm tabular-nums">
-                    <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">科目</th>
-                        <th className="px-3 py-2 font-medium">班级</th>
-                        <th className="px-3 py-2 text-right font-medium">均分</th>
-                        <th className="px-3 py-2 text-right font-medium">及格率</th>
-                        <th className="px-3 py-2 text-right font-medium">优秀率</th>
-                        <th className="px-3 py-2 text-right font-medium">本班均分差</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <h2 className="mb-2 font-semibold">同卷班级对比</h2>
+                <div className="rounded-md border bg-card">
+                  <Table className="tabular-nums">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>科目</TableHead>
+                        <TableHead>班级</TableHead>
+                        <TableHead className="text-right">均分</TableHead>
+                        <TableHead className="text-right">及格率</TableHead>
+                        <TableHead className="text-right">优秀率</TableHead>
+                        <TableHead className="text-right">本班均分差</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {a.peers.flatMap((p) =>
                         p.subjects.flatMap((s) => [
-                          <tr key={`${p.exam.id}-${s.subject}-mine`} className="border-t">
-                            <td className="px-3 py-1.5 font-medium">{s.subject}</td>
-                            <td className="px-3 py-1.5">{exam.className}</td>
-                            <td className="px-3 py-1.5 text-right">{fmt(s.mine.avg)}</td>
-                            <td className="px-3 py-1.5 text-right">{pct(s.mine.passRate)}</td>
-                            <td className="px-3 py-1.5 text-right">{pct(s.mine.excellentRate)}</td>
-                            <td
+                          <TableRow key={`${p.exam.id}-${s.subject}-mine`}>
+                            <TableCell className="font-medium">{s.subject}</TableCell>
+                            <TableCell>{exam.className}</TableCell>
+                            <TableCell className="text-right">{fmt(s.mine.avg)}</TableCell>
+                            <TableCell className="text-right">{pct(s.mine.passRate)}</TableCell>
+                            <TableCell className="text-right">{pct(s.mine.excellentRate)}</TableCell>
+                            <TableCell
                               rowSpan={2}
                               className={cn(
-                                "px-3 py-1.5 text-right font-medium",
+                                "text-right font-medium",
                                 (s.avgDiff ?? 0) > 0 && "text-success",
                                 (s.avgDiff ?? 0) < 0 && "text-destructive",
                               )}
                             >
                               {s.avgDiff == null ? "—" : `${s.avgDiff > 0 ? "+" : ""}${fmt(s.avgDiff)}`}
-                            </td>
-                          </tr>,
-                          <tr key={`${p.exam.id}-${s.subject}-theirs`} className="text-muted-foreground">
-                            <td />
-                            <td className="px-3 py-1.5">
+                            </TableCell>
+                          </TableRow>,
+                          <TableRow key={`${p.exam.id}-${s.subject}-theirs`} className="text-muted-foreground">
+                            <TableCell />
+                            <TableCell>
                               <Link to="/exams/$id" params={{ id: String(p.exam.id) }} className="hover:underline">
                                 {p.className}
                               </Link>
-                            </td>
-                            <td className="px-3 py-1.5 text-right">{fmt(s.theirs.avg)}</td>
-                            <td className="px-3 py-1.5 text-right">{pct(s.theirs.passRate)}</td>
-                            <td className="px-3 py-1.5 text-right">{pct(s.theirs.excellentRate)}</td>
-                          </tr>,
+                            </TableCell>
+                            <TableCell className="text-right">{fmt(s.theirs.avg)}</TableCell>
+                            <TableCell className="text-right">{pct(s.theirs.passRate)}</TableCell>
+                            <TableCell className="text-right">{pct(s.theirs.excellentRate)}</TableCell>
+                          </TableRow>,
                         ]),
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </section>
             )}
@@ -502,7 +524,7 @@ function ProgressList({
   tone: "good" | "bad"
 }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-md border bg-card p-3.5">
       <h3 className="mb-2 text-sm font-medium">{title}</h3>
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">没有</p>
@@ -536,7 +558,7 @@ function ProgressList({
 
 function BorderList({ title, rows }: { title: string; rows: OpData<"exams.analyze">["borderline"]["pass"] }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-md border bg-card p-3.5">
       <h3 className="mb-2 text-sm font-medium">
         {title}（{rows.length}）
       </h3>

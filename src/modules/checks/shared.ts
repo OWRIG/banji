@@ -34,9 +34,24 @@ export const modeMarks: Record<CheckMode, Mark[]> = {
   level: [...levels, "leave", "exempt"],
 }
 
-/** 新建检查时的默认登记方式：背书分等级，其他登记分数 */
+/** 新建检查时的默认登记方式：背书默认快速标记，其他登记分数 */
 export function defaultMode(kind: string): CheckMode {
-  return kind === "recite" ? "level" : "score"
+  return kind === "recite" ? "mark" : "score"
+}
+
+/** 背书简洁勾选模式下：勾选写入的标记 */
+export function reciteTickValue(mode: string): "全背" | "过" {
+  return mode === "level" ? "全背" : "过"
+}
+
+/** 背书简洁勾选模式下：一条结果是否算已完成（已背） */
+export function isReciteDone(
+  mode: string,
+  r: { score: number | null; mark: string | null } | null | undefined,
+): boolean {
+  if (!r?.mark) return false
+  if (mode === "level") return r.mark === "full"
+  return r.mark === "pass" || r.mark === "pass_retry"
 }
 
 /** 显示一条结果：分数，或者"请假/过/全背"等标记 */

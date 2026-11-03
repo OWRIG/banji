@@ -49,7 +49,7 @@ function RootLayout() {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="no-print border-b bg-sidebar md:fixed md:inset-y-0 md:flex md:w-52 md:flex-col md:border-r md:border-b-0">
+      <aside className="no-print border-b bg-sidebar md:fixed md:inset-y-0 md:flex md:w-44 md:flex-col md:border-r md:border-b-0">
         <div className="flex h-14 items-center gap-2 px-4 md:px-5">
           <span className="size-2 rotate-45 bg-brand" aria-hidden />
           <span className="text-sm font-semibold tracking-tight text-foreground">班级工作台</span>
@@ -80,9 +80,8 @@ function RootLayout() {
           </button>
         </div>
       </aside>
-      <div className="w-full md:ml-52">
-        {/* 内容区两侧的竖向参考线 */}
-        <main className="mx-auto min-h-screen w-full max-w-6xl px-4 py-6 md:border-x md:px-10 md:py-10 print:m-0 print:max-w-none print:border-0 print:p-0">
+      <div className="min-w-0 flex-1 md:ml-44 print:ml-0">
+        <main className="mx-auto min-h-screen w-full max-w-screen-2xl px-4 py-4 md:px-6 md:py-5 print:m-0 print:max-w-none print:border-0 print:p-0">
           <Outlet />
         </main>
       </div>

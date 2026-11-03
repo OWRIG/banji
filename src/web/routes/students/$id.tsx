@@ -14,12 +14,12 @@ function StudentPage() {
   return (
     <QueryState query={profile}>
       {(p) => (
-        <div className="space-y-10">
+        <div className="space-y-6">
           <PageHeader
             title={p.student.name}
             subtitle={`${p.student.className} · 学号 ${p.student.studentNo}${p.student.groupName ? ` · ${p.student.groupName}组` : ""}${p.student.gender ? ` · ${p.student.gender}` : ""}`}
             actions={
-              <Button variant="outline" onClick={() => window.print()}>
+              <Button size="sm" variant="outline" onClick={() => window.print()}>
                 打印档案
               </Button>
             }

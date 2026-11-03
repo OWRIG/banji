@@ -19,14 +19,18 @@ export const notesWeb: WebModule = {
 
     async function save() {
       if (!text.trim()) return
-      await add.mutateAsync({ student: profile.student.id, kind, text })
-      setText("")
+      try {
+        await add.mutateAsync({ student: profile.student.id, kind, text })
+        setText("")
+      } catch {
+        // useOpMutation.onError 已提示
+      }
     }
 
     return (
       <section>
-        <h2 className="mb-3 font-semibold">谈话记录</h2>
-        <div className="no-print mb-3 space-y-2">
+        <h2 className="mb-2 font-semibold">谈话记录</h2>
+        <div className="no-print mb-2.5 space-y-2">
           <div className="flex gap-1">
             {(Object.keys(noteKinds) as NoteKind[]).map((k) => (
               <Button key={k} size="xs" variant={kind === k ? "default" : "outline"} onClick={() => setKind(k)}>
@@ -50,11 +54,11 @@ export const notesWeb: WebModule = {
         {data.notes.length === 0 ? (
           <p className="text-sm text-muted-foreground">还没有记录</p>
         ) : (
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-1.5 text-sm">
             {data.notes.map((n) => (
               <li key={n.id} className="rounded-md border bg-card px-3 py-2">
                 <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{n.date}</span>
+                  <span className="tabular-nums">{n.date}</span>
                   <span>{noteKinds[n.kind as NoteKind] ?? n.kind}</span>
                   <button
                     type="button"

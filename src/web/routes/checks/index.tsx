@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { cn } from "cn"
-import { type FormEvent, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { type CheckKind, type CheckMode, checkKinds, checkModes, defaultMode } from "@/modules/checks/shared"
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/checks/")({
 })
 
 function ChecksPage() {
-  const { current } = useCurrentClass()
+  const { current, setCode } = useCurrentClass()
   const search = Route.useSearch()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(!!search.new)
@@ -36,11 +36,13 @@ function ChecksPage() {
         actions={
           <>
             {current && (
-              <Button variant="outline" onClick={() => void exportSheet(current.code)}>
+              <Button size="sm" variant="outline" onClick={() => void exportSheet(current.code)}>
                 导出总表
               </Button>
             )}
-            <Button onClick={() => setCreating(true)}>新建</Button>
+            <Button size="sm" onClick={() => setCreating(true)}>
+              新建
+            </Button>
           </>
         }
       />
@@ -50,16 +52,16 @@ function ChecksPage() {
           rows.length === 0 ? (
             <Empty>还没有检查记录，点右上角「新建」开始第一场默写。</Empty>
           ) : (
-            <div className="rounded-lg border bg-card">
-              <Table>
+            <div className="rounded-md border bg-card">
+              <Table className="min-w-[34rem]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>日期</TableHead>
-                    <TableHead>标题</TableHead>
-                    <TableHead>类型</TableHead>
-                    <TableHead className="text-right">已录</TableHead>
-                    <TableHead className="text-right">达标率</TableHead>
-                    <TableHead className="text-right">待过关</TableHead>
+                    <TableHead className="w-28">日期</TableHead>
+                    <TableHead className="min-w-48">标题</TableHead>
+                    <TableHead className="w-24">类型</TableHead>
+                    <TableHead className="w-20 text-right">已录</TableHead>
+                    <TableHead className="w-24 text-right">达标率</TableHead>
+                    <TableHead className="w-20 text-right">待过关</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -70,12 +72,12 @@ function ChecksPage() {
                       onClick={() => navigate({ to: "/checks/$id", params: { id: String(c.id) } })}
                     >
                       <TableCell className="text-muted-foreground tabular-nums">{c.date ?? "—"}</TableCell>
-                      <TableCell className="font-medium">
-                        <Link to="/checks/$id" params={{ id: String(c.id) }}>
+                      <TableCell className="font-medium whitespace-normal">
+                        <Link to="/checks/$id" params={{ id: String(c.id) }} className="hover:underline">
                           {c.title}
                         </Link>
                       </TableCell>
-                      <TableCell>{checkKinds[c.kind as CheckKind]}</TableCell>
+                      <TableCell className="text-muted-foreground">{checkKinds[c.kind as CheckKind]}</TableCell>
                       <TableCell className="text-right tabular-nums">{c.stats.entered}</TableCell>
                       <TableCell className="text-right tabular-nums">{pct(c.stats.passRate)}</TableCell>
                       <TableCell className={`text-right tabular-nums ${c.pending ? "text-destructive" : ""}`}>
@@ -95,7 +97,10 @@ function ChecksPage() {
           onOpenChange={setCreating}
           classCode={current.code}
           className={current.name}
-          onCreated={(id) => navigate({ to: "/checks/$id", params: { id: String(id) } })}
+          onCreated={(id, code) => {
+            if (code !== current.code) setCode(code)
+            navigate({ to: "/checks/$id", params: { id: String(id) } })
+          }}
         />
       )}
     </div>
@@ -115,10 +120,16 @@ async function exportSheet(classCode: string) {
   }
 }
 
-const modeHints: Record<CheckMode, string> = {
-  score: "逐个填分数，可以从 Excel 整列粘贴。",
-  level: "抄书 / 读书 / 背部分 / 全背，适合背书。全背自动 +1 分。",
-  mark: "过 / 二次过 / 未过 / 请假 / 免。",
+function modeHint(kind: CheckKind, mode: CheckMode): string {
+  if (mode === "score") return "逐个填分数，可以从 Excel 整列粘贴。"
+  if (mode === "level") {
+    return kind === "recite"
+      ? "分等级：抄书 / 读书 / 背部分 / 全背。背书默认勾选记为全背，按背书积分规则计分。"
+      : "分等级：抄书 / 读书 / 背部分 / 全背。"
+  }
+  return kind === "recite"
+    ? "背书默认直接勾选完成（按背书积分规则计分）；详细视图可选 过 / 二次过 / 未过 / 请假 / 免。"
+    : "快速标记：过 / 二次过 / 未过 / 请假 / 免。"
 }
 
 function NewCheckDialog(props: {
@@ -126,8 +137,9 @@ function NewCheckDialog(props: {
   onOpenChange: (open: boolean) => void
   classCode: string
   className: string
-  onCreated: (id: number) => void
+  onCreated: (id: number, classCode: string) => void
 }) {
+  const { classes } = useCurrentClass()
   const [kind, setKind] = useState<CheckKind>("dictation")
   const [title, setTitle] = useState("")
   const [date, setDate] = useState(today())
@@ -135,33 +147,46 @@ function NewCheckDialog(props: {
   const [fullScore, setFullScore] = useState("100")
   const [mode, setMode] = useState<CheckMode>("score")
   const [requirePass, setRequirePass] = useState(false)
-  const create = useOpMutation("checks.create", { silent: true })
+  const [picked, setPicked] = useState<string[]>([props.classCode])
+  const createBatch = useOpMutation("checks.createBatch")
+
+  useEffect(() => {
+    if (props.open) {
+      setPicked([props.classCode])
+    }
+  }, [props.open, props.classCode])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
-    const out = await create.mutateAsync({
-      class: props.classCode,
-      kind,
-      title,
-      date: date || null,
-      mode,
-      requirePass,
-      passLine: Number(passLine),
-      fullScore: Number(fullScore),
-    })
-    props.onOpenChange(false)
-    setTitle("")
-    props.onCreated(out.data.id)
+    if (picked.length === 0) return
+    try {
+      const out = await createBatch.mutateAsync({
+        classes: picked,
+        kind,
+        title,
+        date: date || null,
+        mode,
+        requirePass,
+        passLine: Number(passLine),
+        fullScore: Number(fullScore),
+      })
+      props.onOpenChange(false)
+      setTitle("")
+      const target = out.data.find((x) => x.classCode === props.classCode) ?? out.data[0]
+      props.onCreated(target.id, target.classCode)
+    } catch {
+      // useOpMutation.onError 已提示
+    }
   }
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>新建检查 · {props.className}</DialogTitle>
+          <DialogTitle>新建检查</DialogTitle>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-6">
-          <div className="flex flex-wrap gap-2">
+        <form onSubmit={submit} className="space-y-4">
+          <div className="flex flex-wrap gap-1.5">
             {(Object.keys(checkKinds) as CheckKind[]).map((k) => (
               <Button
                 key={k}
@@ -177,7 +202,28 @@ function NewCheckDialog(props: {
               </Button>
             ))}
           </div>
-          <div className="space-y-2.5">
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label>班级</Label>
+              <span className="text-xs text-muted-foreground">已选 {picked.length} 个班（可多选，各班独立记录）</span>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              {classes.map((c) => (
+                <Label key={c.code} className="font-normal">
+                  <Checkbox
+                    checked={picked.includes(c.code)}
+                    onCheckedChange={(on) =>
+                      setPicked((xs) => (on ? [...new Set([...xs, c.code])] : xs.filter((x) => x !== c.code)))
+                    }
+                  />
+                  {c.name}
+                </Label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="title">标题</Label>
             <Input
               id="title"
@@ -188,20 +234,20 @@ function NewCheckDialog(props: {
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2.5">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
               <Label htmlFor="date">日期（可空）</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             {mode === "score" && (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <Label htmlFor="full">满分</Label>
                 <Input id="full" inputMode="decimal" value={fullScore} onChange={(e) => setFullScore(e.target.value)} />
               </div>
             )}
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <Label>登记方式</Label>
             <div className="inline-flex rounded-md border bg-card p-0.5 text-sm">
               {(Object.keys(checkModes) as CheckMode[]).map((m) => (
@@ -218,10 +264,10 @@ function NewCheckDialog(props: {
                 </button>
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">{modeHints[mode]}</p>
+            <p className="text-xs text-muted-foreground">{modeHint(kind, mode)}</p>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             <Label className="font-normal">
               <Checkbox checked={requirePass} onCheckedChange={(on) => setRequirePass(on === true)} />
               判定过关
@@ -254,7 +300,7 @@ function NewCheckDialog(props: {
             <Button type="button" variant="ghost" onClick={() => props.onOpenChange(false)}>
               取消
             </Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={createBatch.isPending || picked.length === 0}>
               创建并开始登记
             </Button>
           </DialogFooter>

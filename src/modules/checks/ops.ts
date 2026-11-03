@@ -58,41 +58,96 @@ const dateField = z
   .optional()
   .describe("日期 YYYY-MM-DD，可以为空")
 
+const checkParams = {
+  kind: kindEnum.default("dictation"),
+  title: z.string().trim().min(1, "请填写标题").max(100),
+  date: dateField,
+  mode: z
+    .enum(["score", "mark", "level"])
+    .optional()
+    .describe(`${JSON.stringify(checkModes)}；背书默认 mark（快速标记），其余默认 score`),
+  requirePass: z.boolean().default(false).describe("是否判定过关（未过关的进入待过关名单），默认不判定"),
+  passLine: z.number().min(0).default(80).describe("过关线（分数登记且判定过关时才用）"),
+  fullScore: z.number().positive().default(100),
+}
+
+async function insertCheckForClass(
+  ctx: Ctx,
+  classId: number,
+  input: {
+    kind: CheckKind
+    title: string
+    date?: string | null
+    mode?: CheckMode
+    requirePass: boolean
+    passLine: number
+    fullScore: number
+  },
+) {
+  return ctx.insert(checks, {
+    classId,
+    kind: input.kind,
+    title: input.title,
+    date: input.date ?? null,
+    mode: input.mode ?? defaultMode(input.kind),
+    requirePass: input.requirePass,
+    passLine: input.passLine,
+    fullScore: input.fullScore,
+  })
+}
+
 export const createCheck = defineOp({
   name: "checks.create",
   title: "新建检查",
   description:
-    `新建一场检查（${Object.values(checkKinds).join("/")}）。登记方式 mode：score 登记分数；mark 快速标记（过/二次过/未过/请假/免）；` +
-    "level 分等级（抄书/读书/背部分/全背，背书默认用这个）。" +
+    `新建一场检查（${Object.values(checkKinds).join("/")}）。登记方式 mode：score 登记分数；mark 快速标记（过/二次过/未过/请假/免，背书默认用这个）；` +
+    "level 分等级（抄书/读书/背部分/全背）。" +
     "requirePass 是否判定过关：默认不判定，只记录；判定时分数低于过关线、标记为未过、等级不到全背的学生进入待过关名单。",
   kind: "write",
   input: z.object({
     class: classRef,
-    kind: kindEnum.default("dictation"),
-    title: z.string().trim().min(1, "请填写标题").max(100),
-    date: dateField,
-    mode: z
-      .enum(["score", "mark", "level"])
-      .optional()
-      .describe(`${JSON.stringify(checkModes)}；背书默认 level，其余默认 score`),
-    requirePass: z.boolean().default(false).describe("是否判定过关（未过关的进入待过关名单），默认不判定"),
-    passLine: z.number().min(0).default(80).describe("过关线（分数登记且判定过关时才用）"),
-    fullScore: z.number().positive().default(100),
+    ...checkParams,
   }),
   run: async (ctx, input) => {
     const cls = await resolveClass(input.class)
-    const check = await ctx.insert(checks, {
-      classId: cls.id,
-      kind: input.kind,
-      title: input.title,
-      date: input.date ?? null,
-      mode: input.mode ?? defaultMode(input.kind),
-      requirePass: input.requirePass,
-      passLine: input.passLine,
-      fullScore: input.fullScore,
-    })
+    const check = await insertCheckForClass(ctx, cls.id, input)
     ctx.summary = `新建${checkKinds[input.kind]}「${check.title}」（${cls.name}）`
     return check
+  },
+})
+
+export const createCheckBatch = defineOp({
+  name: "checks.createBatch",
+  title: "批量新建检查",
+  description:
+    `一次给一个或多个班级新建同标题检查（${Object.values(checkKinds).join("/")}），为每个选中班级创建一场独立检查，支持一次全部撤销。` +
+    "登记方式 mode：背书默认 mark（快速标记），其余默认 score；也可显式指定 level（分等级）。",
+  kind: "write",
+  input: z.object({
+    classes: z.array(classRef).min(1, "请至少选择一个班级").describe("一个或多个班级（代号、名称或编号）"),
+    ...checkParams,
+  }),
+  run: async (ctx, input) => {
+    const seen = new Set<number>()
+    const targetClasses = []
+    for (const ref of input.classes) {
+      const cls = await resolveClass(ref)
+      if (!seen.has(cls.id)) {
+        seen.add(cls.id)
+        targetClasses.push(cls)
+      }
+    }
+    const created = []
+    for (const cls of targetClasses) {
+      const check = await insertCheckForClass(ctx, cls.id, input)
+      created.push({ ...check, classCode: cls.code, className: cls.name })
+    }
+    const classNames = targetClasses.map((c) => c.name).join("、")
+    ctx.summary =
+      targetClasses.length > 1
+        ? `新建${checkKinds[input.kind]}「${input.title}」（${classNames} 共 ${targetClasses.length} 个班）`
+        : `新建${checkKinds[input.kind]}「${input.title}」（${classNames}）`
+    return created
   },
 })
 

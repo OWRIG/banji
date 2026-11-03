@@ -12,17 +12,17 @@ export const Route = createFileRoute("/settings")({ component: SettingsPage })
 
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border bg-card p-6">
+    <section className="rounded-md border bg-card p-4">
       <h2 className="font-semibold">{title}</h2>
-      {desc && <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{desc}</p>}
-      <div className="mt-5">{children}</div>
+      {desc && <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{desc}</p>}
+      <div className="mt-3.5">{children}</div>
     </section>
   )
 }
 
 function SettingsPage() {
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <PageHeader title="数据与设置" />
       <BackupSection />
       <ModulesSection />

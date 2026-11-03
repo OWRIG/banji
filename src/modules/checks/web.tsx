@@ -20,7 +20,7 @@ export const checksWeb: WebModule = {
     const modules = useOp("modules.list", {})
     if (!modules.data?.find((m) => m.id === "checks")?.enabled) return null
     return (
-      <Button asChild>
+      <Button asChild size="sm">
         <Link to="/checks" search={{ new: true }}>
           记默写
         </Link>
@@ -33,7 +33,7 @@ export const checksWeb: WebModule = {
     if (!data) return null
     return (
       <>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {brief.classes.map((c) => {
             const pending = data.pending.filter((p) => p.classCode === c.code)
             const byStudent = new Map<number, { name: string; items: typeof pending }>()
@@ -43,8 +43,8 @@ export const checksWeb: WebModule = {
               byStudent.set(p.student.id, e)
             }
             return (
-              <section key={c.code} className="rounded-lg border bg-card p-5">
-                <div className="mb-3 flex items-center gap-2">
+              <section key={c.code} className="rounded-md border bg-card p-3.5">
+                <div className="mb-2 flex items-center gap-2">
                   <h2 className="font-semibold">{c.name} 待过关</h2>
                   <Badge variant={pending.length ? "destructive" : "secondary"}>{pending.length}</Badge>
                   <Link
@@ -58,7 +58,7 @@ export const checksWeb: WebModule = {
                 {byStudent.size === 0 ? (
                   <p className="text-sm text-muted-foreground">✓ 没有欠账</p>
                 ) : (
-                  <ul className="space-y-1.5 text-sm">
+                  <ul className="space-y-1 text-sm">
                     {[...byStudent.entries()].map(([id, s]) => (
                       <li key={id} className="flex gap-2">
                         <Link
@@ -80,18 +80,18 @@ export const checksWeb: WebModule = {
           })}
         </div>
 
-        <section className="rounded-lg border bg-card p-5">
-          <h2 className="mb-3 font-semibold">今天的检查</h2>
+        <section className="rounded-md border bg-card p-3.5">
+          <h2 className="mb-2 font-semibold">今天的检查</h2>
           {data.todayChecks.length === 0 ? (
             <p className="text-sm text-muted-foreground">今天还没有登记检查。</p>
           ) : (
-            <ul className="space-y-1.5 text-sm">
+            <ul className="space-y-1 text-sm">
               {data.todayChecks.map((c) => (
                 <li key={c.id} className="flex flex-wrap gap-x-3">
                   <Link to="/checks/$id" params={{ id: String(c.id) }} className="font-medium hover:underline">
                     {c.title}
                   </Link>
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground tabular-nums">
                     {checkKinds[c.kind as CheckKind]} · 已录 {c.stats.entered} 人
                     {c.requirePass
                       ? ` · 达标率 ${pct(c.stats.passRate)} · 未达标 ${c.stats.failed}`
@@ -115,16 +115,16 @@ export const checksWeb: WebModule = {
     return (
       <>
         <p className="text-sm text-muted-foreground">
-          检查达标率 <span className="font-medium text-brand">{pct(data.passRate)}</span> · 待过关{" "}
-          <span className={cn("font-medium", data.pending.length > 0 && "text-destructive")}>
+          检查达标率 <span className="font-medium text-brand tabular-nums">{pct(data.passRate)}</span> · 待过关{" "}
+          <span className={cn("font-medium tabular-nums", data.pending.length > 0 && "text-destructive")}>
             {data.pending.length}
           </span>
         </p>
 
         {data.pending.length > 0 && (
-          <section className="rounded-lg border border-destructive/30 bg-card p-5">
-            <h2 className="mb-3 font-semibold">待过关</h2>
-            <ul className="space-y-1.5 text-sm">
+          <section className="rounded-md border border-destructive/30 bg-card p-3.5">
+            <h2 className="mb-2 font-semibold">待过关</h2>
+            <ul className="space-y-1 text-sm">
               {data.pending.map((h) => (
                 <li key={h.resultId} className="flex items-center gap-3">
                   <Link to="/checks/$id" params={{ id: String(h.checkId) }} className="hover:underline">
@@ -133,7 +133,7 @@ export const checksWeb: WebModule = {
                   <span className="text-destructive tabular-nums">
                     {h.score != null ? fmt(h.score) : marks[h.mark as Mark]}
                   </span>
-                  <span className="text-xs text-muted-foreground">{h.date ?? ""}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{h.date ?? ""}</span>
                   <Button
                     size="xs"
                     variant="outline"
@@ -149,7 +149,7 @@ export const checksWeb: WebModule = {
         )}
 
         <section>
-          <h2 className="mb-3 font-semibold">最近的检查</h2>
+          <h2 className="mb-2 font-semibold">最近的检查</h2>
           {data.recentChecks.length === 0 ? (
             <p className="text-sm text-muted-foreground">还没有记录</p>
           ) : (
