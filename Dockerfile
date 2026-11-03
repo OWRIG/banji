@@ -7,12 +7,18 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS build
+ARG DEBIAN_MIRROR=
 # better-sqlite3 优先下载预编译包；下载失败（例如网络慢）时会现场编译，需要这些工具。只装在构建阶段，不进最终镜像
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN if [ -n "$DEBIAN_MIRROR" ]; then sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources; fi \
+    && apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN pnpm install --frozen-lockfile
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN --mount=type=cache,id=banji-corepack,target=/root/.cache/node/corepack \
+    COREPACK_NPM_REGISTRY="$NPM_REGISTRY" npm_config_nodedir=/usr/local \
+    pnpm install --frozen-lockfile --registry="$NPM_REGISTRY"
 COPY . .
-RUN pnpm build && pnpm prune --prod
+RUN --mount=type=cache,id=banji-corepack,target=/root/.cache/node/corepack \
+    pnpm build && pnpm prune --prod
 
 FROM base
 ENV NODE_ENV=production \
