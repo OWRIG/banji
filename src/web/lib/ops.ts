@@ -21,6 +21,8 @@ export async function callOp<N extends OpName>(name: N, input: OpInput<N>): Prom
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input ?? {}),
+  }).catch(() => {
+    throw new OpCallError("网络连接失败，请检查网络后重试", 0)
   })
   const body = await res.json().catch(() => ({ message: "服务器没有响应" }))
   if (!res.ok) throw new OpCallError(body.message ?? "操作失败", res.status)

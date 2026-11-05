@@ -5,12 +5,14 @@ import { type Ctx, classRef, confirmField, defineOp, OpError, studentRef } from 
 import { syncAutoPoints } from "@/server/core/points-engine"
 import { resolveClass, resolveOptionalClass, resolveStudents } from "@/server/core/resolve"
 import { db } from "@/server/db"
-import { classes, students } from "@/server/db/schema"
+import { classes, pointEvents, pointRules, students } from "@/server/db/schema"
 import { today } from "@/shared/format"
-import { checkResults, checks } from "./schema"
+import { MISSING_SOURCE, MISSING_TRIGGER, syncMissingPoints } from "./missing"
+import { checkExpectations, checkResults, checks } from "./schema"
 import {
   type CheckKind,
   type CheckMode,
+  checkDay,
   checkKinds,
   checkModes,
   checkStats,
@@ -31,6 +33,7 @@ export const SOURCE = "check_result"
 async function syncCheckPoints(ctx: Ctx, checkId: number, removed: number[] = []) {
   const rows = await db.select({ id: checkResults.id }).from(checkResults).where(eq(checkResults.checkId, checkId))
   await syncAutoPoints(ctx, SOURCE, [...rows.map((r) => r.id), ...removed])
+  await syncMissingPoints(ctx, checkId)
 }
 
 export async function resolveCheck(ref: string | number, classId?: number) {
@@ -69,6 +72,12 @@ const checkParams = {
   requirePass: z.boolean().default(false).describe("是否判定过关（未过关的进入待过关名单），默认不判定"),
   passLine: z.number().min(0).default(80).describe("过关线（分数登记且判定过关时才用）"),
   fullScore: z.number().positive().default(100),
+  deductIfMissing: z
+    .boolean()
+    .optional()
+    .describe(
+      "建表当天（北京时间）结束后未登记扣 1 分，补填自动退回；默认默写/背书开启，其他类型关闭。只针对建表时在班学生，请假/免测不扣。",
+    ),
 }
 
 async function insertCheckForClass(
@@ -82,9 +91,11 @@ async function insertCheckForClass(
     requirePass: boolean
     passLine: number
     fullScore: number
+    deductIfMissing?: boolean
   },
 ) {
-  return ctx.insert(checks, {
+  const deductIfMissing = input.deductIfMissing ?? (input.kind === "dictation" || input.kind === "recite")
+  const check = await ctx.insert(checks, {
     classId,
     kind: input.kind,
     title: input.title,
@@ -93,7 +104,14 @@ async function insertCheckForClass(
     requirePass: input.requirePass,
     passLine: input.passLine,
     fullScore: input.fullScore,
+    missingDeadline: deductIfMissing ? checkDay() : null,
   })
+  if (deductIfMissing) {
+    for (const s of await activeStudents(classId)) {
+      await ctx.insert(checkExpectations, { checkId: check.id, studentId: s.id })
+    }
+  }
+  return check
 }
 
 export const createCheck = defineOp({
@@ -102,7 +120,8 @@ export const createCheck = defineOp({
   description:
     `新建一场检查（${Object.values(checkKinds).join("/")}）。登记方式 mode：score 登记分数；mark 快速标记（过/二次过/未过/请假/免，背书默认用这个）；` +
     "level 分等级（抄书/读书/背部分/全背）。" +
-    "requirePass 是否判定过关：默认不判定，只记录；判定时分数低于过关线、标记为未过、等级不到全背的学生进入待过关名单。",
+    "requirePass 是否判定过关：默认不判定，只记录；判定时分数低于过关线、标记为未过、等级不到全背的学生进入待过关名单。" +
+    "默写/背书默认开启当天未登记扣分（北京时间，次日结算；补填退回），deductIfMissing=false 可关闭。",
   kind: "write",
   input: z.object({
     class: classRef,
@@ -121,7 +140,7 @@ export const createCheckBatch = defineOp({
   title: "批量新建检查",
   description:
     `一次给一个或多个班级新建同标题检查（${Object.values(checkKinds).join("/")}），为每个选中班级创建一场独立检查，支持一次全部撤销。` +
-    "登记方式 mode：背书默认 mark（快速标记），其余默认 score；也可显式指定 level（分等级）。",
+    "登记方式 mode：背书默认 mark（快速标记），其余默认 score；也可显式指定 level（分等级）。默写/背书默认开启当天未登记扣分，补填退回，可用 deductIfMissing=false 关闭。",
   kind: "write",
   input: z.object({
     classes: z.array(classRef).min(1, "请至少选择一个班级").describe("一个或多个班级（代号、名称或编号）"),
@@ -192,9 +211,36 @@ export const deleteCheck = defineOp({
       SOURCE,
       results.map((r) => r.id),
     )
+    const expected = await db.select().from(checkExpectations).where(eq(checkExpectations.checkId, check.id))
+    for (const s of expected) await ctx.remove(checkExpectations, s.id)
+    await syncAutoPoints(
+      ctx,
+      MISSING_SOURCE,
+      expected.map((s) => s.id),
+    )
     await ctx.remove(checks, check.id)
     ctx.summary = `删除检查「${check.title}」（含 ${results.length} 条登记）`
     return { title: check.title, removedResults: results.length }
+  },
+})
+
+export const settleMissingResults = defineOp({
+  name: "checks.settleMissing",
+  title: "结算未登记扣分",
+  description:
+    "结算已过建表当天（北京时间）仍未登记的扣分；每人每表只扣一次，补填或标记请假/免测会退回。默认结算全部，也可指定一场。服务每分钟自动执行，重启会补结算。",
+  kind: "write",
+  input: z.object({ check: checkRef.optional(), class: classRef.optional() }),
+  run: async (ctx, input) => {
+    const cls = await resolveOptionalClass(input.class)
+    const check = input.check === undefined ? undefined : await resolveCheck(input.check, cls?.id)
+    if (check) await syncMissingPoints(ctx, check.id)
+    else if (cls) {
+      for (const c of await db.select().from(checks).where(eq(checks.classId, cls.id)))
+        await syncMissingPoints(ctx, c.id)
+    } else await syncMissingPoints(ctx)
+    ctx.summary = `结算${check ? `「${check.title}」` : cls ? cls.name : "检查表"}未登记扣分（补填自动退回）`
+    return { changes: ctx.changes.length }
   },
 })
 
@@ -285,6 +331,20 @@ export const getCheck = defineOp({
     const roster = await activeStudents(check.classId)
     const results = await db.select().from(checkResults).where(eq(checkResults.checkId, check.id))
 
+    const missingEvents = await db
+      .select({ studentId: checkExpectations.studentId, delta: pointEvents.delta })
+      .from(checkExpectations)
+      .innerJoin(
+        pointEvents,
+        and(
+          eq(pointEvents.sourceId, checkExpectations.id),
+          eq(pointEvents.sourceType, MISSING_SOURCE),
+          isNull(pointEvents.revokedAt),
+        ),
+      )
+      .where(eq(checkExpectations.checkId, check.id))
+    const [missingRule] = await db.select().from(pointRules).where(eq(pointRules.autoTrigger, MISSING_TRIGGER))
+
     // 上一场同班同类检查：按日期（没有日期按创建顺序）排在这场之前的最近一场
     const [prev] = await db
       .select()
@@ -308,12 +368,14 @@ export const getCheck = defineOp({
       return {
         student: { id: s.id, name: s.name, studentNo: s.studentNo, groupId: s.groupId },
         result: r,
+        missingPoints: missingEvents.filter((e) => e.studentId === s.id).reduce((sum, e) => sum + e.delta, 0),
         status: resultStatus(check, r),
         previous: p && prev ? { score: p.score, mark: p.mark, status: resultStatus(prev, p) } : null,
       }
     })
     return {
       check: { ...check, classCode: klass.code, className: klass.name },
+      missingRule: missingRule ? { enabled: missingRule.enabled, delta: missingRule.delta } : null,
       previousCheck: prev ? { id: prev.id, title: prev.title } : null,
       rows,
       stats: checkStats(check, results),

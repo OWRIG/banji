@@ -17,11 +17,13 @@ import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
 import { Empty, PageHeader, Picker, QueryState } from "@/web/components/common"
 import { useDangerOp } from "@/web/components/danger"
+import { EntrySaveStatus } from "@/web/components/entry-save-status"
 import { Button } from "@/web/components/ui/button"
 import { Input } from "@/web/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
 import { downloadCsv } from "@/web/lib/csv"
 import { useOp, useOpMutation } from "@/web/lib/ops"
+import { useEntryAutosave } from "@/web/lib/use-entry-autosave"
 
 export const Route = createFileRoute("/exams/$id")({
   component: ExamPage,
@@ -125,7 +127,7 @@ function Header({ detail }: { detail: Detail }) {
 function cellText(c: Cell | undefined) {
   if (!c) return ""
   if (c.status) return scoreStatuses[c.status as ScoreStatus] ?? c.status
-  return fmt(c.score)
+  return c.score == null ? "" : String(c.score)
 }
 
 /** 分数着色：低于满分 60% 红色，达到 85% 绿色 */
@@ -141,35 +143,49 @@ function ScoreEditor({ detail }: { detail: Detail }) {
   const subjects = exam.subjects.map((s) => s.name)
   const hasTotal = detail.subjects.includes(TOTAL)
   const record = useOpMutation("exams.record", { silent: true })
-  const recordLoud = useOpMutation("exams.record")
-  const [draft, setDraft] = useState<Record<string, string>>({})
-  const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({})
   const inputs = useRef<Record<string, HTMLInputElement | null>>({})
-  const saving = useRef<Record<string, string>>({})
-  const key = (i: number, subject: string) => `${i}:${subject}`
+  const key = (i: number, subject: string) => `${rows[i]?.student.id}:${subject}`
+  const autosave = useEntryAutosave(
+    `exams:${exam.id}`,
+    Object.fromEntries(
+      rows.flatMap((r, i) =>
+        exam.subjects.map((s) => [
+          key(i, s.name),
+          {
+            value: cellText(r.cells[s.name]),
+            normalize: (value: string) => {
+              const parsed = parseScoreValue(value)
+              return parsed === "clear"
+                ? ""
+                : parsed
+                  ? parsed.status
+                    ? scoreStatuses[parsed.status]
+                    : String(parsed.score)
+                  : value.trim()
+            },
+            validate: (value: string) => {
+              const parsed = parseScoreValue(value)
+              if (parsed === null) return `${r.student.name} ${s.name}：可以填分数，或 请假/缺考`
+              if (parsed !== "clear" && parsed.score != null && parsed.score > s.full)
+                return `${r.student.name} ${s.name}：分数超过满分 ${s.full}`
+              return null
+            },
+          },
+        ]),
+      ),
+    ),
+    (entries) =>
+      record.mutateAsync({
+        exam: exam.id,
+        results: entries.map(({ key: k, value }) => {
+          const separator = k.indexOf(":")
+          return { student: Number(k.slice(0, separator)), subject: k.slice(separator + 1), value }
+        }),
+      }),
+  )
 
-  async function save(i: number, subject: string, value: string) {
-    const row = rows[i]
-    const k = key(i, subject)
-    if (value === cellText(row.cells[subject]) || saving.current[k] !== undefined) return
-    if (parseScoreValue(value) === null) {
-      toast.error(`${row.student.name} ${subject}：看不懂「${value}」。可以填分数，或 请假/缺考`)
-      return
-    }
-    saving.current[k] = value
-    setBusyKeys((b) => ({ ...b, [k]: true }))
-    try {
-      await record.mutateAsync({ exam: exam.id, results: [{ student: row.student.id, subject, value }] })
-      setDraft(({ [k]: _, ...rest }) => rest)
-    } catch {
-      // useOpMutation.onError 已提示，保留原草稿
-    } finally {
-      delete saving.current[k]
-      setBusyKeys((b) => {
-        const { [k]: _, ...rest } = b
-        return rest
-      })
-    }
+  function save(i: number, subject: string, value: string) {
+    autosave.queue.edit([{ key: key(i, subject), value }], true)
   }
 
   function focus(i: number, subject: string) {
@@ -191,7 +207,7 @@ function ScoreEditor({ detail }: { detail: Detail }) {
   }
 
   // 从 Excel 复制一列（或相邻几列）分数，从这一格开始往下、往右填
-  async function onPaste(e: ClipboardEvent<HTMLInputElement>, i: number, subject: string) {
+  function onPaste(e: ClipboardEvent<HTMLInputElement>, i: number, subject: string) {
     const lines = e.clipboardData.getData("text").split(/\r?\n/)
     if (lines.at(-1) === "") lines.pop()
     const grid = lines.map((l) => l.split("\t").map((x) => x.trim()))
@@ -213,21 +229,20 @@ function ScoreEditor({ detail }: { detail: Detail }) {
       return
     }
     if (entries.length === 0) return
-    try {
-      await recordLoud.mutateAsync({ exam: exam.id, results: entries })
-      setDraft({})
-    } catch {
-      // useOpMutation.onError 已提示
-    }
+    autosave.queue.edit(
+      entries.map(({ student, subject, value }) => ({ key: `${student}:${subject}`, value })),
+      true,
+    )
   }
 
   return (
     <div>
       <p className="no-print mb-2.5 text-xs text-muted-foreground">
-        输入后按回车跳到下一位并自动保存；可以从 Excel
+        输入后自动保存，按回车跳到下一位；可以从 Excel
         复制一列或几列分数，粘贴到起始格。没来考的填「请假」或「缺考」，不计入统计。
         {hasTotal && " 总分自动相加，名次按本班总分计算（有导入的班排时用导入的）。"}
       </p>
+      <EntrySaveStatus state={autosave} onRetry={autosave.queue.retry} onDiscard={autosave.queue.discard} />
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
@@ -261,22 +276,21 @@ function ScoreEditor({ detail }: { detail: Detail }) {
                 {exam.subjects.map((s) => {
                   const k = key(i, s.name)
                   const cell = r.cells[s.name]
-                  const busy = !!busyKeys[k]
                   return (
                     <TableCell key={s.name} className="py-1">
                       <Input
                         ref={(el) => {
                           inputs.current[k] = el
                         }}
-                        value={draft[k] ?? cellText(cell)}
-                        disabled={busy}
+                        value={autosave.drafts[k]?.value ?? cellText(cell)}
+                        aria-invalid={!!autosave.errors[k]}
                         inputMode="decimal"
                         aria-label={`${r.student.name} ${s.name}`}
                         className={cn(
                           "no-print h-9 w-20 tabular-nums md:h-7",
-                          !(k in draft) && levelClass(cell?.score, s.full),
+                          !(k in autosave.drafts) && levelClass(cell?.score, s.full),
                         )}
-                        onChange={(e) => setDraft((d) => ({ ...d, [k]: e.target.value }))}
+                        onChange={(e) => autosave.queue.edit([{ key: k, value: e.target.value }])}
                         onKeyDown={(e) => onKeyDown(e, i, s.name)}
                         onBlur={(e) => void save(i, s.name, e.currentTarget.value.trim())}
                         onPaste={(e) => void onPaste(e, i, s.name)}

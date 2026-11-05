@@ -6,7 +6,7 @@ import { notesModule } from "@/modules/notes"
 import { pointsModule } from "@/modules/points"
 import { rosterModule } from "@/modules/roster"
 import { systemModule } from "@/modules/system"
-import { classRef, defineOp, type OpDef, OpError, registerTable, studentRef } from "@/server/core/define"
+import { classRef, defineOp, type OpDef, OpError, registerTable, runOp, studentRef } from "@/server/core/define"
 import { registerPointSource } from "@/server/core/points-engine"
 import { cleanName, resolveOptionalClass, resolveStudent } from "@/server/core/resolve"
 import { seedRules } from "@/server/core/rules"
@@ -222,4 +222,15 @@ export async function availableOps() {
     const m = owner.get(op.name)
     return !m || m.core || !off.has(m.id)
   })
+}
+
+/** 平台只调度模块声明的操作；停用模块不再自动执行。所有写入仍走操作层和撤销记录。 */
+export async function runScheduledOps() {
+  for (const m of await enabledModules()) {
+    for (const scheduled of m.scheduledOps ?? []) {
+      const op = await findOp(scheduled.name)
+      if (!op || !m.ops.some((o) => o.name === scheduled.name)) throw new Error(`未登记的定时操作：${scheduled.name}`)
+      await runOp(op, {}, { actor: "自动结算" })
+    }
+  }
 }

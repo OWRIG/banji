@@ -19,6 +19,7 @@ import type { OpData } from "@/server/registry"
 import { fmt, pct } from "@/shared/format"
 import { Empty, PageHeader, QueryState, Stat } from "@/web/components/common"
 import { useDangerOp } from "@/web/components/danger"
+import { EntrySaveStatus } from "@/web/components/entry-save-status"
 import { Button } from "@/web/components/ui/button"
 import { Checkbox } from "@/web/components/ui/checkbox"
 import { Input } from "@/web/components/ui/input"
@@ -26,6 +27,7 @@ import { Label } from "@/web/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/web/components/ui/table"
 import { downloadCsv } from "@/web/lib/csv"
 import { useOp, useOpMutation } from "@/web/lib/ops"
+import { useEntryAutosave } from "@/web/lib/use-entry-autosave"
 
 export const Route = createFileRoute("/checks/$id")({ component: CheckPage })
 
@@ -40,12 +42,12 @@ function CheckPage() {
 }
 
 const display = resultText
+const entryText = (r: Parameters<typeof resultText>[0]) => (r?.score != null ? String(r.score) : display(r))
 
 function CheckEditor({ detail }: { detail: Detail }) {
   const { check, rows, stats } = detail
   const navigate = useNavigate()
   const record = useOpMutation("checks.record", { silent: true })
-  const recordLoud = useOpMutation("checks.record")
   const clear = useOpMutation("pending.clear")
   const del = useDangerOp("checks.delete", {
     title: "删除这场检查？",
@@ -59,42 +61,46 @@ function CheckEditor({ detail }: { detail: Detail }) {
 
   const isMark = check.mode !== "score"
   const isReciteMark = check.kind === "recite" && isMark
-  // 输入框里的草稿：key 是学生编号
   const [view, setView] = useState<"tick" | "entry" | "overview">(isReciteMark ? "tick" : "entry")
-  const [draft, setDraft] = useState<Record<number, string>>({})
-  const [busyIds, setBusyIds] = useState<Record<number, boolean>>({})
   const inputs = useRef<(HTMLInputElement | null)[]>([])
-  // 正在保存的值：回车后焦点移走还会触发一次失焦保存，用它避免重复提交
-  const saving = useRef<Record<number, string>>({})
+  const autosave = useEntryAutosave(
+    `checks:${check.id}`,
+    Object.fromEntries(
+      rows.map((r) => [
+        String(r.student.id),
+        {
+          value: entryText(r.result),
+          normalize: (value: string) => {
+            const parsed = parseResultValue(value)
+            return parsed === "clear" ? "" : parsed ? entryText(parsed) : value.trim()
+          },
+          validate: (value: string) => {
+            const parsed = parseResultValue(value)
+            const allowed = modeMarks[check.mode as CheckMode] ?? modeMarks.score
+            if (
+              parsed === null ||
+              (parsed !== "clear" &&
+                ((check.mode !== "score" && parsed.score != null) || (parsed.mark && !allowed.includes(parsed.mark))))
+            ) {
+              return `${r.student.name}：请填${isMark ? "" : "分数，或 "}${allowed.map((m) => marks[m]).join("/")}`
+            }
+            return null
+          },
+        },
+      ]),
+    ),
+    (entries) =>
+      record.mutateAsync({
+        check: check.id,
+        results: entries.map(({ key, value }) => ({ student: Number(key), value })),
+      }),
+  )
+  const busyIds = Object.fromEntries(Object.keys(autosave.drafts).map((id) => [id, autosave.saving]))
 
   const update = useOpMutation("checks.update")
 
-  async function save(index: number, value: string) {
-    const row = rows[index]
-    const sid = row.student.id
-    if (value === display(row.result) || saving.current[sid] !== undefined) return
-    const parsed = parseResultValue(value)
-    if (parsed === null) {
-      toast.error(`${row.student.name}：看不懂「${value}」。可以填分数，或 过/未过/请假/免`)
-      return
-    }
-    saving.current[sid] = value
-    setBusyIds((b) => ({ ...b, [sid]: true }))
-    try {
-      await record.mutateAsync({ check: check.id, results: [{ student: sid, value }] })
-      setDraft((d) => {
-        const { [row.student.id]: _, ...rest } = d
-        return rest
-      })
-    } catch {
-      // useOpMutation.onError 已弹出提示，保持服务器端原值
-    } finally {
-      delete saving.current[sid]
-      setBusyIds((b) => {
-        const { [sid]: _, ...rest } = b
-        return rest
-      })
-    }
+  function save(index: number, value: string) {
+    autosave.queue.edit([{ key: String(rows[index].student.id), value }], true)
   }
 
   function toggleReciteTick(index: number) {
@@ -130,7 +136,7 @@ function CheckEditor({ detail }: { detail: Detail }) {
   }
 
   // 从 Excel 复制一整列分数，粘贴到某一行：从这一行开始往下填
-  async function onPaste(e: ClipboardEvent<HTMLInputElement>, index: number) {
+  function onPaste(e: ClipboardEvent<HTMLInputElement>, index: number) {
     const text = e.clipboardData.getData("text")
     const lines = text.split(/\r?\n/).map((l) => l.split("\t")[0].trim())
     if (lines.at(-1) === "") lines.pop()
@@ -145,12 +151,10 @@ function CheckEditor({ detail }: { detail: Detail }) {
       toast.error(`有 ${bad.length} 个格子看不懂（例如「${bad[0].value}」），没有保存`)
       return
     }
-    try {
-      await recordLoud.mutateAsync({ check: check.id, results: entries })
-      setDraft({})
-    } catch {
-      // useOpMutation.onError 已提示，保留原草稿
-    }
+    autosave.queue.edit(
+      entries.map(({ student, value }) => ({ key: String(student), value })),
+      true,
+    )
   }
 
   function quick(index: number, value: string) {
@@ -204,6 +208,14 @@ function CheckEditor({ detail }: { detail: Detail }) {
         }
       />
       {del.dialog}
+
+      {check.missingDeadline && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          {detail.missingRule?.enabled
+            ? `未登记扣分：截止 ${check.missingDeadline} 当天结束（北京时间），仍未登记每人 ${fmt(detail.missingRule.delta)} 分；补填自动退回，请假、免测不扣。`
+            : "当天未登记扣分规则已停用。"}
+        </p>
+      )}
 
       <div className="mb-2.5 flex flex-wrap gap-2">
         {isReciteMark && view === "tick" ? (
@@ -300,9 +312,10 @@ function CheckEditor({ detail }: { detail: Detail }) {
               ? "点击学生行勾选完成，再点一次取消清除；其他情况点「详细登记」。"
               : isMark
                 ? "点按钮直接保存，再点一次取消。"
-                : "回车保存并跳到下一位；支持粘贴 Excel 整列，也可以填 请假 / 免。"}
+                : "输入后自动保存，回车跳到下一位；支持粘贴 Excel 整列，也可以填 请假 / 免。"}
         </p>
       </div>
+      <EntrySaveStatus state={autosave} onRetry={autosave.queue.retry} onDiscard={autosave.queue.discard} />
       {rows.length === 0 && <Empty>班级里还没有学生，请先到学生档案添加学生。</Empty>}
       <div className={cn(view === "overview" ? "" : "hidden print:block")}>
         <CheckOverview rows={rows} requirePass={check.requirePass} />
@@ -332,7 +345,7 @@ function CheckEditor({ detail }: { detail: Detail }) {
             </TableHeader>
             <TableBody>
               {rows.map((r, i) => {
-                const value = draft[r.student.id] ?? display(r.result)
+                const value = autosave.drafts[r.student.id]?.value ?? entryText(r.result)
                 const busy = !!busyIds[r.student.id]
                 return (
                   <TableRow key={r.student.id}>
@@ -341,6 +354,9 @@ function CheckEditor({ detail }: { detail: Detail }) {
                       <Link to="/students/$id" params={{ id: String(r.student.id) }} className="hover:underline">
                         {r.student.name}
                       </Link>
+                      {r.missingPoints < 0 && (
+                        <span className="ml-1 text-xs text-destructive">未登记 {fmt(r.missingPoints)}</span>
+                      )}
                     </TableCell>
                     {detail.previousCheck && (
                       <TableCell
@@ -371,11 +387,13 @@ function CheckEditor({ detail }: { detail: Detail }) {
                               inputs.current[i] = el
                             }}
                             value={value}
-                            disabled={busy}
+                            aria-invalid={!!autosave.errors[r.student.id]}
                             inputMode="decimal"
                             aria-label={`${r.student.name}的本次成绩`}
                             className="h-9 w-20 tabular-nums md:h-7"
-                            onChange={(e) => setDraft((d) => ({ ...d, [r.student.id]: e.target.value }))}
+                            onChange={(e) =>
+                              autosave.queue.edit([{ key: String(r.student.id), value: e.target.value }])
+                            }
                             onKeyDown={(e) => onKeyDown(e, i)}
                             onBlur={(e) => void save(i, e.currentTarget.value.trim())}
                             onPaste={(e) => void onPaste(e, i)}
@@ -461,6 +479,7 @@ function ReciteChecklist({
             />
             <span className="w-14 shrink-0 text-xs text-muted-foreground tabular-nums">{row.student.studentNo}</span>
             <span className="min-w-0 flex-1 leading-snug font-medium break-words">{row.student.name}</span>
+            {row.missingPoints < 0 && <span className="text-xs text-destructive">{fmt(row.missingPoints)} 分</span>}
             {done ? (
               <span className="shrink-0 text-xs font-medium text-success">
                 ✓ 已背{row.result?.mark === "pass_retry" ? "（二次过）" : ""}

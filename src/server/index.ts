@@ -4,7 +4,7 @@ import { Hono } from "hono"
 import { app, mcpApp } from "./app"
 import { dailyBackupIfNeeded } from "./backup"
 import { env } from "./env"
-import { initModules } from "./registry"
+import { initModules, runScheduledOps } from "./registry"
 
 await initModules()
 
@@ -28,6 +28,22 @@ async function backupTick() {
 }
 await backupTick()
 setInterval(backupTick, 60 * 60 * 1000)
+
+// 模块的到期处理：关掉网页也会运行；重启时补结算停机期间到期的记录。
+let settling = false
+async function moduleTick() {
+  if (settling) return
+  settling = true
+  try {
+    await runScheduledOps()
+  } catch (err) {
+    console.error("自动结算失败：", err)
+  } finally {
+    settling = false
+  }
+}
+await moduleTick()
+setInterval(moduleTick, 60 * 1000)
 
 serve({ fetch: server.fetch, port: env.PORT, hostname: env.HOST }, (info) => {
   console.log(`服务已启动：http://${env.HOST === "0.0.0.0" ? "localhost" : env.HOST}:${info.port}`)

@@ -8,6 +8,16 @@ export const checkKinds = {
 } as const
 export type CheckKind = keyof typeof checkKinds
 
+/** 登记截止日统一按北京时间计算，不受服务器所在时区影响。 */
+export function checkDay(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date)
+}
+
 export const checkModes = { score: "分数登记", mark: "快速标记", level: "分等级" } as const
 export type CheckMode = keyof typeof checkModes
 

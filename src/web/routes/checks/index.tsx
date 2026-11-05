@@ -147,6 +147,7 @@ function NewCheckDialog(props: {
   const [fullScore, setFullScore] = useState("100")
   const [mode, setMode] = useState<CheckMode>("score")
   const [requirePass, setRequirePass] = useState(false)
+  const [deductIfMissing, setDeductIfMissing] = useState(true)
   const [picked, setPicked] = useState<string[]>([props.classCode])
   const createBatch = useOpMutation("checks.createBatch")
 
@@ -167,6 +168,7 @@ function NewCheckDialog(props: {
         date: date || null,
         mode,
         requirePass,
+        deductIfMissing,
         passLine: Number(passLine),
         fullScore: Number(fullScore),
       })
@@ -196,6 +198,7 @@ function NewCheckDialog(props: {
                 onClick={() => {
                   setKind(k)
                   setMode(defaultMode(k))
+                  setDeductIfMissing(k === "dictation" || k === "recite")
                 }}
               >
                 {checkKinds[k]}
@@ -267,6 +270,16 @@ function NewCheckDialog(props: {
             <p className="text-xs text-muted-foreground">{modeHint(kind, mode)}</p>
           </div>
 
+          <div className="space-y-2">
+            <Label className="font-normal">
+              <Checkbox checked={deductIfMissing} onCheckedChange={(on) => setDeductIfMissing(on === true)} />
+              当天未登记扣分
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              按建表当天（北京时间）结束后结算；未登记每人扣 1
+              分，补填自动退回，请假、免测不扣。分值可在积分规则中调整。
+            </p>
+          </div>
           <div className="space-y-2">
             <Label className="font-normal">
               <Checkbox checked={requirePass} onCheckedChange={(on) => setRequirePass(on === true)} />

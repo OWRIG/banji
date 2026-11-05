@@ -36,6 +36,8 @@ export type ServerModule<
   /** 核心模块（名册、积分、系统）不能停用；功能模块老师可以在设置里开关 */
   core?: boolean
   ops: Ops
+  /** 服务启动和每分钟执行的操作；必须同时登记在 ops 中，且能接受空参数。 */
+  scheduledOps?: readonly Ops[number][]
   tables?: IdTable[]
   pointSources?: PointSource[]
   autoRules?: AutoRuleSeed[]

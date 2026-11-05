@@ -29,6 +29,13 @@
       "when": 1793471750851,
       "tag": "0003_skinny_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793789216262,
+      "tag": "0004_new_morlun",
+      "breakpoints": true
     }
   ]
 }

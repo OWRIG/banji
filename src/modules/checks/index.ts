@@ -1,6 +1,7 @@
 import { eq, inArray } from "drizzle-orm"
 import { defineModule } from "@/server/core/module"
 import { db } from "@/server/db"
+import { MISSING_TRIGGER, missingPointSource } from "./missing"
 import {
   checkSheet,
   clearPending,
@@ -13,10 +14,11 @@ import {
   pendingItems,
   recordResults,
   SOURCE,
+  settleMissingResults,
   unclearPending,
   updateCheck,
 } from "./ops"
-import { checkResults, checks } from "./schema"
+import { checkExpectations, checkResults, checks } from "./schema"
 import { checkStats, resultStatus } from "./shared"
 
 // 「默写过关」模块：默写、背书、作业订正等检查，以及待过关名单。
@@ -37,10 +39,13 @@ export const checksModule = defineModule({
     listPending,
     clearPending,
     unclearPending,
+    settleMissingResults,
   ],
-  tables: [checks, checkResults],
+  scheduledOps: [settleMissingResults],
+  tables: [checks, checkResults, checkExpectations],
 
   pointSources: [
+    missingPointSource,
     {
       sourceType: SOURCE,
       triggers: {
@@ -68,6 +73,7 @@ export const checksModule = defineModule({
   autoRules: [
     { name: "默写满分", delta: 1, autoTrigger: "checks.dictation_full" },
     { name: "背书一次过关", delta: 1, autoTrigger: "checks.recite_first_pass" },
+    { name: "当天未登记", delta: -1, autoTrigger: MISSING_TRIGGER },
   ],
 
   studentFacts: [
